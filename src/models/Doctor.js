@@ -96,12 +96,12 @@ const doctorSchema = new mongoose.Schema(
       default: 0,
     },
 
-    registrationNumber: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-    },
+    // registrationNumber: {
+    //   type: String,
+    //   required: true,
+    //   unique: true,
+    //   trim: true,
+    // },
 
     clinic: {
         name: {
@@ -158,12 +158,12 @@ const doctorSchema = new mongoose.Schema(
       default: 0,
     },
 
-    verificationStatus: {
-      type: String,
-      enum: ["pending", "approved", "rejected"],
-      default: "pending",
-      index: true,
-    },
+    // verificationStatus: {
+    //   type: String,
+    //   enum: ["pending", "approved", "rejected"],
+    //   default: "pending",
+    //   index: true,
+    // },
 
     isBlocked: {
       type: Boolean,
