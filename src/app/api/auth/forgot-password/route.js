@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 
 import connectDB from "@/db/connect";
 import { findAccountByEmail } from "@/components/userLookup";
-import { generateOtp, saveOtp } from "@/lib/otp";
+import { generateOtp, saveOtp, getOtpKey } from "@/lib/otp";
 import { sendOtpEmail } from "@/lib/mail";
+
+import { redis } from "@/lib/redis";
 
 export async function POST(req) {
   try {
@@ -19,6 +21,18 @@ export async function POST(req) {
     }
 
     const normalizedEmail = email.toLowerCase();
+
+    const existingOtp = await redis.get(getOtpKey(normalizedEmail));
+
+    if (existingOtp) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "OTP already sent. Please wait 5 minutes before requesting again.",
+        },
+        { status: 429 }
+      );
+    }
 
     const lookup = await findAccountByEmail(normalizedEmail);
 
