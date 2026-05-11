@@ -16,29 +16,29 @@ export default function LoginPage() {
   const [error, setError] = useState('')
 
   // Redirect if already logged in
-  useEffect(() => {
-    if (status === 'authenticated' && session?.user?.role) {
-      redirectByRole(session.user.role)
-    }
-  }, [status, session])
+  // useEffect(() => {
+  //   if (status === 'authenticated' && session?.user?.role) {
+  //     redirectByRole(session.user.role)
+  //   }
+  // }, [status, session])
 
-  // Handle error from URL params (e.g. NextAuth OAuthAccountNotLinked)
-  useEffect(() => {
-    const err = searchParams.get('error')
-    if (err === 'OAuthAccountNotLinked') {
-      setError('This email is linked to a different provider. Please sign in with the correct method.')
-    } else if (err === 'CredentialsSignin') {
-      setError('Invalid email or password.')
-    } else if (err) {
-      setError('Authentication failed. Please try again.')
-    }
-  }, [searchParams])
+  // // Handle error from URL params (e.g. NextAuth OAuthAccountNotLinked)
+  // useEffect(() => {
+  //   const err = searchParams.get('error')
+  //   if (err === 'OAuthAccountNotLinked') {
+  //     setError('This email is linked to a different provider. Please sign in with the correct method.')
+  //   } else if (err === 'CredentialsSignin') {
+  //     setError('Invalid email or password.')
+  //   } else if (err) {
+  //     setError('Authentication failed. Please try again.')
+  //   }
+  // }, [searchParams])
 
-  function redirectByRole(role) {
-    if (role === 'patient') router.push('/patient/dashboard')
-    else if (role === 'doctor') router.push('/doctor/dashboard')
-    else router.push('/')
-  }
+  // function redirectByRole(role) {
+  //   if (role === 'patient') router.push('/patient/dashboard')
+  //   else if (role === 'doctor') router.push('/doctor/dashboard')
+  //   else router.push('/')
+  // }
 
   const handleChange = e => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
@@ -82,21 +82,21 @@ export default function LoginPage() {
     }
   }
 
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-surface-2">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm text-slate-500">Loading…</span>
-        </div>
-      </div>
-    )
-  }
+  // if (status === 'loading') {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-surface-2">
+  //       <div className="flex flex-col items-center gap-3">
+  //         <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
+  //         <span className="text-sm text-slate-500">Loading…</span>
+  //       </div>
+  //     </div>
+  //   )
+  // }
 
   return (
     <div className="min-h-screen flex bg-white">
       {/* Left: Form */}
-      <div className="flex-1 flex flex-col justify-center py-12 px-6 sm:px-12 lg:px-16 xl:px-24">
+      <div className="flex-1 flex flex-col items-center justify-center py-12 px-6 sm:px-12 lg:px-16 xl:px-24">
         {/* Logo */}
         <div className="mb-10">
           <Link href="/" className="flex items-center gap-2">
@@ -253,32 +253,6 @@ export default function LoginPage() {
               Register as doctor
             </Link>
           </p>
-        </div>
-      </div>
-
-      {/* Right: Visual panel (desktop only) */}
-      <div className="hidden lg:flex flex-1 flex-col justify-center items-center bg-gradient-to-br from-primary-600 to-primary-800 relative overflow-hidden p-12">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full -translate-y-1/3 translate-x-1/3" />
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full translate-y-1/3 -translate-x-1/4" />
-        </div>
-        <div className="relative text-center max-w-sm">
-          <div className="text-6xl mb-6">🩺</div>
-          <h2 className="font-display text-3xl font-bold text-white mb-4 leading-tight">
-            Healthcare at your fingertips
-          </h2>
-          <p className="text-primary-100 text-sm leading-relaxed">
-            Book appointments, consult online, get prescriptions digitally — all in one seamless platform.
-          </p>
-
-          <div className="mt-10 grid grid-cols-3 gap-4 text-center">
-            {[['500+', 'Doctors'], ['10K+', 'Patients'], ['4.8★', 'Rating']].map(([val, lbl]) => (
-              <div key={lbl} className="bg-white/10 backdrop-blur-sm rounded-xl p-3">
-                <div className="font-display text-xl font-bold text-white">{val}</div>
-                <div className="text-xs text-primary-200 mt-0.5">{lbl}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </div>
