@@ -11,9 +11,20 @@ export async function middleware(req) {
 
   const isLoggedIn = Boolean(token);
 
-  const isPatientRoute = pathname.startsWith("/patient");
+  // Patient protected routes without /patient prefix
+  const isPatientRoute =
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/profile") ||
+    pathname.startsWith("/appointments") ||
+    pathname.startsWith("/prescriptions") ||
+    pathname.startsWith("/consultation") ||
+    pathname.startsWith("/review") ||
+    pathname.startsWith("/feedback");
+
+  // Doctor protected routes
   const isDoctorRoute = pathname.startsWith("/doctor");
 
+  // Auth routes
   const isAuthRoute =
     pathname.startsWith("/login") ||
     pathname.startsWith("/register") ||
@@ -30,7 +41,7 @@ export async function middleware(req) {
 
   // 2. If patient tries doctor route
   if (isLoggedIn && isDoctorRoute && token.role !== "doctor") {
-    return NextResponse.redirect(new URL("/patient/dashboard", req.url));
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
   // 3. If doctor tries patient route
@@ -41,7 +52,7 @@ export async function middleware(req) {
   // 4. If already logged in and visiting login/register pages
   if (isLoggedIn && isAuthRoute) {
     if (token.role === "patient") {
-      return NextResponse.redirect(new URL("/patient/dashboard", req.url));
+      return NextResponse.redirect(new URL("/dashboard", req.url));
     }
 
     if (token.role === "doctor") {
@@ -54,8 +65,16 @@ export async function middleware(req) {
 
 export const config = {
   matcher: [
-    "/patient/:path*",
+    "/dashboard/:path*",
+    "/profile/:path*",
+    "/appointments/:path*",
+    "/prescriptions/:path*",
+    "/consultation/:path*",
+    "/review/:path*",
+    "/feedback/:path*",
+
     "/doctor/:path*",
+
     "/login",
     "/register",
     "/register/doctor",

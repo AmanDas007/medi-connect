@@ -15,17 +15,19 @@ export default function VerifyOtpPage() {
   const [resending, setResending] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [countdown, setCountdown] = useState(60)
+  const [countdown, setCountdown] = useState(300)
   const [canResend, setCanResend] = useState(false)
 
   useEffect(() => {
     const storedEmail = sessionStorage.getItem('reset_email')
+  
     if (!storedEmail) {
       router.push('/forgot-password')
       return
     }
-    setEmail(storedEmail)
-  }, [])
+  
+    setEmail(storedEmail.trim().toLowerCase())
+  }, [router])
 
   // Countdown timer
   useEffect(() => {
@@ -76,31 +78,51 @@ export default function VerifyOtpPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+  
     const otpString = otp.join('')
+    const normalizedEmail = email.trim().toLowerCase()
+  
+    if (!normalizedEmail) {
+      setError('Email not found. Please request OTP again.')
+      router.push('/forgot-password')
+      return
+    }
+  
     if (otpString.length < OTP_LENGTH) {
       setError('Please enter the complete 6-digit OTP.')
       return
     }
+  
     setLoading(true)
     setError('')
+  
     try {
       const res = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp: otpString }),
+        body: JSON.stringify({
+          email: normalizedEmail,
+          otp: otpString,
+        }),
       })
+  
       const data = await res.json()
+  
       if (!res.ok) {
         setError(data.message || 'Invalid OTP. Please try again.')
         setOtp(Array(OTP_LENGTH).fill(''))
         focusInput(0)
-      } else {
-        // Store resetToken for the next page
-        sessionStorage.setItem('reset_token', data.resetToken)
-        setSuccess('OTP verified! Redirecting…')
-        setTimeout(() => router.push('/reset-password'), 1200)
+        return
       }
-    } catch {
+  
+      sessionStorage.setItem('reset_token', data.resetToken)
+  
+      setSuccess('OTP verified! Redirecting…')
+  
+      setTimeout(() => {
+        router.push('/reset-password')
+      }, 1200)
+    } catch (err) {
       setError('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
@@ -109,26 +131,46 @@ export default function VerifyOtpPage() {
 
   const handleResend = async () => {
     if (!canResend) return
+  
+    const normalizedEmail = email.trim().toLowerCase()
+  
+    if (!normalizedEmail) {
+      setError('Email not found. Please request OTP again.')
+      router.push('/forgot-password')
+      return
+    }
+  
     setResending(true)
     setError('')
+  
     try {
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({
+          email: normalizedEmail,
+        }),
       })
+  
       const data = await res.json()
+  
       if (!res.ok) {
         setError(data.message || 'Failed to resend OTP.')
-      } else {
-        setOtp(Array(OTP_LENGTH).fill(''))
-        focusInput(0)
-        setCountdown(60)
-        setCanResend(false)
-        setSuccess('OTP resent successfully!')
-        setTimeout(() => setSuccess(''), 3000)
+        return
       }
-    } catch {
+  
+      setOtp(Array(OTP_LENGTH).fill(''))
+      focusInput(0)
+  
+      setCountdown(60)
+      setCanResend(false)
+  
+      setSuccess('OTP resent successfully!')
+  
+      setTimeout(() => {
+        setSuccess('')
+      }, 3000)
+    } catch (err) {
       setError('Failed to resend OTP.')
     } finally {
       setResending(false)

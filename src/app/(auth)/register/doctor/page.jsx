@@ -15,7 +15,24 @@ const STEPS = [
   { id: 1, label: 'Personal Info' },
   { id: 2, label: 'Professional' },
   { id: 3, label: 'Clinic Details' },
+  { id: 4, label: 'Availability' },
 ]
+
+const DAYS = [
+  { dayOfWeek: 0, label: 'Sunday' },
+  { dayOfWeek: 1, label: 'Monday' },
+  { dayOfWeek: 2, label: 'Tuesday' },
+  { dayOfWeek: 3, label: 'Wednesday' },
+  { dayOfWeek: 4, label: 'Thursday' },
+  { dayOfWeek: 5, label: 'Friday' },
+  { dayOfWeek: 6, label: 'Saturday' },
+]
+
+const DEFAULT_AVAILABILITY = DAYS.map(day => ({
+  dayOfWeek: day.dayOfWeek,
+  isAvailable: day.dayOfWeek !== 0,
+  slots: day.dayOfWeek === 0 ? [] : [{ startTime: '09:00', endTime: '13:00' }],
+}))
 
 export default function DoctorRegisterPage() {
   const router = useRouter()
@@ -29,6 +46,8 @@ export default function DoctorRegisterPage() {
 
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+
+  const [availability, setAvailability] = useState(DEFAULT_AVAILABILITY)
 
   // Form state
   const [form, setForm] = useState({
@@ -99,6 +118,29 @@ export default function DoctorRegisterPage() {
       if (!form.clinicState.trim()) return 'State is required.'
       if (!form.clinicPincode.trim() || !/^\d{6}$/.test(form.clinicPincode)) return 'Valid 6-digit pincode is required.'
     }
+    if (s === 4) {
+      const availableDays = availability.filter(day => day.isAvailable)
+    
+      if (availableDays.length === 0) {
+        return 'Please keep at least one day available.'
+      }
+    
+      for (const day of availableDays) {
+        if (!day.slots.length) {
+          return 'Every available day should have at least one slot.'
+        }
+    
+        for (const slot of day.slots) {
+          if (!slot.startTime || !slot.endTime) {
+            return 'Slot start time and end time are required.'
+          }
+    
+          if (slot.startTime >= slot.endTime) {
+            return 'Slot end time must be after start time.'
+          }
+        }
+      }
+    }
     return null
   }
 
@@ -116,48 +158,172 @@ export default function DoctorRegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const err = validateStep(3)
-    if (err) { setError(err); return }
-
+  
+    const err = validateStep(4)
+    if (err) {
+      setError(err)
+      return
+    }
+  
+    if (!licence) {
+      setError('Medical licence is required.')
+      return
+    }
+  
     setLoading(true)
     setError('')
-
+    setSuccess('')
+  
     try {
       const formData = new FormData()
+  
       formData.append('name', form.name.trim())
       formData.append('email', form.email.trim().toLowerCase())
       formData.append('password', form.password)
+  
       formData.append('specialization', form.specialization)
-      formData.append('experienceYears', form.experienceYears)
+      formData.append('experienceYears', form.experienceYears || '0')
       formData.append('consultationFee', form.consultationFee)
+  
       formData.append('clinicName', form.clinicName.trim())
       formData.append('clinicAddress', form.clinicAddress.trim())
       formData.append('clinicCity', form.clinicCity.trim())
       formData.append('clinicState', form.clinicState.trim())
       formData.append('clinicPincode', form.clinicPincode.trim())
-      if (form.longitude) formData.append('longitude', form.longitude)
-      if (form.latitude) formData.append('latitude', form.latitude)
-      if (profileImage) formData.append('profileImage', profileImage)
+  
+      if (form.longitude.trim()) {
+        formData.append('longitude', form.longitude.trim())
+      }
+  
+      if (form.latitude.trim()) {
+        formData.append('latitude', form.latitude.trim())
+      }
+  
+      if (profileImage) {
+        formData.append('profileImage', profileImage)
+      }
+  
       formData.append('licence', licence)
-
+  
+      const cleanedAvailability = availability.map(day => ({
+        dayOfWeek: day.dayOfWeek,
+        isAvailable: day.isAvailable,
+        slots: day.isAvailable ? day.slots : [],
+      }))
+  
+      formData.append('availability', JSON.stringify(cleanedAvailability))
+  
       const res = await fetch('/api/auth/doctor/register', {
         method: 'POST',
         body: formData,
       })
-
+  
       const data = await res.json()
-
+  
       if (!res.ok) {
         setError(data.message || 'Registration failed. Please try again.')
-      } else {
-        setSuccess('Registration successful! Your account is under review. Redirecting to login…')
-        setTimeout(() => router.push('/login'), 2500)
+        return
       }
+  
+      setSuccess('Doctor registration successful! Redirecting to login...')
+  
+      setTimeout(() => {
+        router.push('/login')
+      }, 1500)
     } catch (err) {
+      console.error('Doctor register frontend error:', err)
       setError('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
     }
+  }
+
+  const toggleDayAvailability = (dayOfWeek) => {
+    setAvailability(prev =>
+      prev.map(day => {
+        if (day.dayOfWeek !== dayOfWeek) return day
+  
+        const nextAvailable = !day.isAvailable
+  
+        return {
+          ...day,
+          isAvailable: nextAvailable,
+          slots: nextAvailable && day.slots.length === 0
+            ? [{ startTime: '09:00', endTime: '13:00' }]
+            : day.slots,
+        }
+      })
+    )
+  }
+  
+  const addSlot = (dayOfWeek) => {
+    setAvailability(prev =>
+      prev.map(day =>
+        day.dayOfWeek === dayOfWeek
+          ? {
+              ...day,
+              isAvailable: true,
+              slots: [...day.slots, { startTime: '09:00', endTime: '13:00' }],
+            }
+          : day
+      )
+    )
+  }
+  
+  const removeSlot = (dayOfWeek, slotIndex) => {
+    setAvailability(prev =>
+      prev.map(day => {
+        if (day.dayOfWeek !== dayOfWeek) return day
+  
+        const updatedSlots = day.slots.filter((_, index) => index !== slotIndex)
+  
+        return {
+          ...day,
+          slots: updatedSlots,
+          isAvailable: updatedSlots.length > 0 ? day.isAvailable : false,
+        }
+      })
+    )
+  }
+  
+  const updateSlot = (dayOfWeek, slotIndex, field, value) => {
+    setAvailability(prev =>
+      prev.map(day => {
+        if (day.dayOfWeek !== dayOfWeek) return day
+  
+        const updatedSlots = day.slots.map((slot, index) =>
+          index === slotIndex
+            ? { ...slot, [field]: value }
+            : slot
+        )
+  
+        return {
+          ...day,
+          slots: updatedSlots,
+        }
+      })
+    )
+  }
+  
+  const copyFirstAvailableDayToAll = () => {
+    const sourceDay = availability.find(day => day.isAvailable && day.slots.length > 0)
+  
+    if (!sourceDay) {
+      setError('Please add at least one slot before copying.')
+      return
+    }
+  
+    setAvailability(prev =>
+      prev.map(day => ({
+        ...day,
+        isAvailable: day.dayOfWeek === 0 ? false : true,
+        slots: day.dayOfWeek === 0
+          ? []
+          : sourceDay.slots.map(slot => ({ ...slot })),
+      }))
+    )
+  
+    setError('')
   }
 
   return (
@@ -212,7 +378,7 @@ export default function DoctorRegisterPage() {
             {/* Alerts */}
             {success && (
               <div className="mb-5 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 flex items-start gap-2.5">
-                <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
                 {success}
@@ -220,7 +386,7 @@ export default function DoctorRegisterPage() {
             )}
             {error && (
               <div className="mb-5 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-start gap-2.5">
-                <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 {error}
@@ -346,7 +512,7 @@ export default function DoctorRegisterPage() {
                         </div>
                         <button
                           type="button"
-                          onClick={e => { e.stopPropagation(); setLicence(null); setLicenceName(''); licenceInputRef.current.value = '' }}
+                          onClick={e => { e.stopPropagation(); setLicence(null); setLicenceName(''); if (licenceInputRef.current) licenceInputRef.current.value = '' }}
                           className="ml-auto text-xs text-red-400 hover:text-red-600"
                         >Remove</button>
                       </div>
@@ -444,14 +610,154 @@ export default function DoctorRegisterPage() {
 
                 <div className="flex gap-3 pt-1">
                   <button type="button" onClick={prevStep} className="btn-secondary flex-1 py-3 text-sm">← Back</button>
-                  <button type="submit" disabled={loading || !!success}
-                    className="btn-primary flex-1 py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                  <button type="button" onClick={nextStep} className="btn-primary flex-1 py-3 text-sm">Continue →</button>
+                </div>
+              </form>
+            )}
+
+            {/* ─── STEP 4: Availability ─── */}
+            {step === 4 && (
+              <form onSubmit={handleSubmit} className="space-y-5 animate-fade-in">
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <div>
+                    <h2 className="text-base font-semibold text-slate-800">Weekly Availability</h2>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Set the days and time slots when patients can book appointments.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={copyFirstAvailableDayToAll}
+                    className="cursor-pointer text-xs font-medium text-primary-600 hover:text-primary-700 bg-primary-50 hover:bg-primary-100 border border-primary-100 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    Copy first to weekdays
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {availability.map(day => {
+                    const dayLabel = DAYS.find(d => d.dayOfWeek === day.dayOfWeek)?.label
+
+                    return (
+                      <div
+                        key={day.dayOfWeek}
+                        className={`rounded-2xl border p-4 transition-colors ${
+                          day.isAvailable
+                            ? 'border-primary-100 bg-primary-50/30'
+                            : 'border-slate-100 bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <h3 className="text-sm font-semibold text-slate-800">
+                              {dayLabel}
+                            </h3>
+                            <p className="text-xs text-slate-400 mt-0.5">
+                              {day.isAvailable ? `${day.slots.length} slot(s) added` : 'Unavailable'}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => toggleDayAvailability(day.dayOfWeek)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                              day.isAvailable ? 'bg-primary-600' : 'bg-slate-300'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                                day.isAvailable ? 'translate-x-5' : 'translate-x-0.5'
+                              }`}
+                            />
+                          </button>
+                        </div>
+
+                        {day.isAvailable && (
+                          <div className="mt-4 space-y-3">
+                            {day.slots.map((slot, slotIndex) => (
+                              <div
+                                key={slotIndex}
+                                className="grid grid-cols-[1fr_1fr_auto] gap-3 items-end"
+                              >
+                                <div>
+                                  <label className="text-xs font-medium text-slate-500 mb-1 block">
+                                    Start
+                                  </label>
+                                  <input
+                                    type="time"
+                                    value={slot.startTime}
+                                    onChange={e =>
+                                      updateSlot(day.dayOfWeek, slotIndex, 'startTime', e.target.value)
+                                    }
+                                    className="input-base"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="text-xs font-medium text-slate-500 mb-1 block">
+                                    End
+                                  </label>
+                                  <input
+                                    type="time"
+                                    value={slot.endTime}
+                                    onChange={e =>
+                                      updateSlot(day.dayOfWeek, slotIndex, 'endTime', e.target.value)
+                                    }
+                                    className="input-base"
+                                  />
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => removeSlot(day.dayOfWeek, slotIndex)}
+                                  className="h-10 px-3 rounded-xl border border-red-100 text-red-500 text-xs font-medium hover:bg-red-50 transition-colors"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+
+                            <button
+                              type="button"
+                              onClick={() => addSlot(day.dayOfWeek)}
+                              className="text-xs font-medium text-primary-600 hover:text-primary-700"
+                            >
+                              + Add another slot
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  You can update these slots later from your doctor dashboard. Patients will only see available slots after booking rules are applied.
+                </p>
+
+                <div className="flex gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={prevStep}
+                    className="btn-secondary flex-1 py-3 text-sm"
+                  >
+                    ← Back
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={loading || !!success}
+                    className="btn-primary flex-1 py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     {loading ? (
                       <span className="flex items-center justify-center gap-2">
                         <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         Submitting…
                       </span>
-                    ) : 'Submit Registration'}
+                    ) : (
+                      'Submit Registration'
+                    )}
                   </button>
                 </div>
               </form>

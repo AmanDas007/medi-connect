@@ -17,55 +17,70 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const storedEmail = sessionStorage.getItem('reset_email')
     const storedToken = sessionStorage.getItem('reset_token')
+  
     if (!storedEmail || !storedToken) {
       router.push('/forgot-password')
       return
     }
-    setEmail(storedEmail)
+  
+    setEmail(storedEmail.trim().toLowerCase())
     setResetToken(storedToken)
-  }, [])
+  }, [router])
 
   const handleChange = e => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
     if (error) setError('')
   }
 
-  const passwordStrength = (pwd) => {
-    if (!pwd) return null
-    if (pwd.length < 6) return { level: 1, label: 'Too short', color: 'bg-red-400' }
-    if (pwd.length < 8) return { level: 2, label: 'Weak', color: 'bg-orange-400' }
-    const score = [/[A-Z]/.test(pwd), /[0-9]/.test(pwd), /[^a-zA-Z0-9]/.test(pwd)].filter(Boolean).length
-    if (score === 0) return { level: 2, label: 'Weak', color: 'bg-orange-400' }
-    if (score === 1) return { level: 3, label: 'Fair', color: 'bg-yellow-400' }
-    if (score === 2) return { level: 4, label: 'Good', color: 'bg-blue-400' }
-    return { level: 5, label: 'Strong', color: 'bg-emerald-500' }
-  }
-
-  const strength = passwordStrength(form.newPassword)
-
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (form.newPassword.length < 6) { setError('Password must be at least 6 characters.'); return }
-    if (form.newPassword !== form.confirmPassword) { setError('Passwords do not match.'); return }
-
+  
+    if (!email || !resetToken) {
+      setError('Reset session expired. Please request OTP again.')
+      router.push('/forgot-password')
+      return
+    }
+  
+    if (form.newPassword.length < 6) {
+      setError('Password must be at least 6 characters.')
+      return
+    }
+  
+    if (form.newPassword !== form.confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+  
     setLoading(true)
     setError('')
+  
     try {
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, resetToken, newPassword: form.newPassword }),
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          resetToken,
+          newPassword: form.newPassword,
+        }),
       })
+  
       const data = await res.json()
+  
       if (!res.ok) {
         setError(data.message || 'Failed to reset password.')
-      } else {
-        setSuccess(true)
-        sessionStorage.removeItem('reset_email')
-        sessionStorage.removeItem('reset_token')
-        setTimeout(() => router.push('/login'), 2500)
+        return
       }
-    } catch {
+  
+      setSuccess(true)
+  
+      sessionStorage.removeItem('reset_email')
+      sessionStorage.removeItem('reset_token')
+  
+      setTimeout(() => {
+        router.push('/login')
+      }, 2500)
+    } catch (err) {
       setError('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
@@ -146,17 +161,6 @@ export default function ResetPasswordPage() {
                       <EyeIcon open={showNew} />
                     </button>
                   </div>
-                  {/* Strength meter */}
-                  {form.newPassword && strength && (
-                    <div className="mt-2">
-                      <div className="flex gap-1 mb-1">
-                        {[1,2,3,4,5].map(i => (
-                          <div key={i} className={`h-1 flex-1 rounded-full transition-colors duration-300 ${i <= strength.level ? strength.color : 'bg-slate-200'}`} />
-                        ))}
-                      </div>
-                      <span className="text-xs text-slate-500">{strength.label}</span>
-                    </div>
-                  )}
                 </div>
 
                 <div>
@@ -189,25 +193,6 @@ export default function ResetPasswordPage() {
                       Passwords match
                     </p>
                   )}
-                </div>
-
-                {/* Password tips */}
-                <div className="bg-slate-50 rounded-xl p-4 text-xs text-slate-500 space-y-1.5">
-                  <p className="font-medium text-slate-600 mb-2">Password should have:</p>
-                  {[
-                    { rule: form.newPassword.length >= 8, text: 'At least 8 characters' },
-                    { rule: /[A-Z]/.test(form.newPassword), text: 'One uppercase letter' },
-                    { rule: /[0-9]/.test(form.newPassword), text: 'One number' },
-                    { rule: /[^a-zA-Z0-9]/.test(form.newPassword), text: 'One special character' },
-                  ].map(({ rule, text }) => (
-                    <div key={text} className={`flex items-center gap-1.5 transition-colors ${rule ? 'text-emerald-600' : 'text-slate-400'}`}>
-                      <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={rule ? 3 : 2}
-                          d={rule ? 'M5 13l4 4L19 7' : 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'} />
-                      </svg>
-                      {text}
-                    </div>
-                  ))}
                 </div>
 
                 <button

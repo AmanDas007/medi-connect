@@ -12,28 +12,40 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) {
+  
+    const normalizedEmail = email.trim().toLowerCase()
+  
+    if (!normalizedEmail || !/\S+@\S+\.\S+/.test(normalizedEmail)) {
       setError('Please enter a valid email address.')
       return
     }
+  
     setLoading(true)
     setError('')
+  
     try {
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        body: JSON.stringify({ email: normalizedEmail }),
       })
+  
       const data = await res.json()
+  
       if (!res.ok) {
         setError(data.message || 'Failed to send OTP. Please try again.')
-      } else {
-        setSent(true)
-        // Store email in sessionStorage for OTP page
-        sessionStorage.setItem('reset_email', email.trim().toLowerCase())
-        setTimeout(() => router.push('/verify-otp'), 1500)
+        return
       }
-    } catch {
+  
+      setSent(true)
+  
+      // Store email for verify-otp page
+      sessionStorage.setItem('reset_email', normalizedEmail)
+  
+      setTimeout(() => {
+        router.push('/verify-otp')
+      }, 1500)
+    } catch (err) {
       setError('Something went wrong. Please try again.')
     } finally {
       setLoading(false)

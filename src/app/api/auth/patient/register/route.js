@@ -9,7 +9,7 @@ import { uploadFileToCloudinary } from "@/lib/cloudinary";
 export async function POST(req) {
   try {
     await connectDB();
-
+    console.log("coming")
     const formData = await req.formData();
 
     const name = formData.get("name")?.toString().trim();
