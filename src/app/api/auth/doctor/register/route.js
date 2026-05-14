@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 
 import connectDB from "@/db/connect";
 import Doctor from "@/models/Doctor";
-import { emailExistsAnywhere } from "@/components/userLookup";
+import { emailExistsAnywhere } from "@/lib/userLookup";
 import { uploadFileToCloudinary } from "@/lib/cloudinary";
 
 function safeJsonParse(value, fallback) {
@@ -94,6 +94,7 @@ export async function POST(req) {
     }
 
     let profileUrl = null;
+    let profilePublicId = null;
 
     if (profileImage && profileImage.size > 0) {
       const uploadedProfile = await uploadFileToCloudinary(
@@ -102,6 +103,7 @@ export async function POST(req) {
       );
 
       profileUrl = uploadedProfile?.url || null;
+      profilePublicId = uploadedProfile?.publicId || null;
     }
 
     const uploadedLicence = await uploadFileToCloudinary(
@@ -109,7 +111,7 @@ export async function POST(req) {
       "medi-connect/doctors/licence"
     );
 
-    if (!uploadedLicence?.url) {
+    if (!uploadedLicence?.url || !uploadedLicence?.publicId) {
       return NextResponse.json(
         { success: false, message: "Licence upload failed" },
         { status: 500 }
@@ -152,7 +154,9 @@ export async function POST(req) {
       email,
       password: hashedPassword,
       profileUrl,
+      profilePublicId,
       licenceUrl: uploadedLicence.url,
+      licencePublicId: uploadedLicence.publicId,
       specialization,
       experienceYears: Number.isNaN(experienceYears) ? 0 : experienceYears,
       clinic,

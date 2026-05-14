@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 
 import connectDB from "@/db/connect";
-import { findAccountByEmail } from "@/components/userLookup";
+import { findAccountByEmail } from "@/lib/userLookup";
 import { verifyResetToken, deleteResetToken } from "@/lib/otp";
 
 export async function POST(req) {

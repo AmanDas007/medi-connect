@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import connectDB from "@/db/connect";
-import { findAccountByEmail } from "@/components/userLookup";
+import { findAccountByEmail } from "@/lib/userLookup";
 import { verifyOtp, deleteOtp, createResetToken } from "@/lib/otp";
 
 export async function POST(req) {

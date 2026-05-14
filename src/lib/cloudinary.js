@@ -37,3 +37,11 @@ export async function uploadFileToCloudinary(file, folder) {
     uploadStream.end(buffer);
   });
 }
+
+export async function deleteFileFromCloudinary(publicId) {
+  if (!publicId) return null;
+
+  return cloudinary.uploader.destroy(publicId, {
+    resource_type: "image",
+  });
+}

@@ -32,8 +32,8 @@ export async function middleware(req) {
     pathname.startsWith("/verify-otp") ||
     pathname.startsWith("/reset-password");
 
-  // 1. If not logged in and trying protected route
-  if (!isLoggedIn && (isPatientRoute || isDoctorRoute)) {
+  // 1. If not logged in and trying protected route i.e. doctor routes
+  if (!isLoggedIn && isDoctorRoute) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);

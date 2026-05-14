@@ -78,9 +78,19 @@ const doctorSchema = new mongoose.Schema(
       default: null,
     },
 
+    profilePublicId: {
+      type: String,
+      default: null,
+    },
+
     licenceUrl: {
       type: String,
       required: true,
+    },
+
+    licensePublicId: {
+      type: String,
+      default: null,
     },
 
     specialization: {

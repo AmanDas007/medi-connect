@@ -40,6 +40,11 @@ const patientSchema = new mongoose.Schema(
       default: null,
     },
 
+    profilePublicId: {
+      type: String,
+      default: null,
+    },
+
     isBlocked: {
       type: Boolean,
       default: false,

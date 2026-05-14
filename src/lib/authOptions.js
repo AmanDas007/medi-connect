@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import connectDB from "@/db/connect";
 import Patient from "@/models/Patient";
 import Doctor from "@/models/Doctor";
-import { findAccountByEmail } from "@/components/userLookup";
+import { findAccountByEmail } from "./userLookup";
 
 async function resolveOAuthUser({ email, name, image }) {
   const normalizedEmail = email.toLowerCase();

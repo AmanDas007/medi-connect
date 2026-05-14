@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { redis } from "@/lib/redis";
+import { redis } from "./redis";
 
 export function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();

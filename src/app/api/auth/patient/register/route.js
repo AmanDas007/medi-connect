@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 
 import connectDB from "@/db/connect";
 import Patient from "@/models/Patient";
-import { emailExistsAnywhere } from "@/components/userLookup";
+import { emailExistsAnywhere } from "@/lib/userLookup";
 import { uploadFileToCloudinary } from "@/lib/cloudinary";
 
 export async function POST(req) {
@@ -42,6 +42,7 @@ export async function POST(req) {
     }
 
     let profileUrl = null;
+    let profilePublicId = null;
 
     if (profileImage && profileImage.size > 0) {
       const uploadedProfile = await uploadFileToCloudinary(
@@ -50,6 +51,7 @@ export async function POST(req) {
       );
 
       profileUrl = uploadedProfile?.url || null;
+      profilePublicId = uploadedProfile?.publicId || null;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -60,6 +62,7 @@ export async function POST(req) {
       email,
       password: hashedPassword,
       profileUrl,
+      profilePublicId,
       isBlocked: false,
     });
 
