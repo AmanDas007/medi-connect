@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { signOut } from 'next-auth/react'
+import { usePathname, useRouter } from 'next/navigation'
+import { signOut, useSession } from 'next-auth/react'
+import { useState } from 'react'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard' },
@@ -12,6 +13,29 @@ const navItems = [
 
 export default function PatientSidebar({ mobileOpen, setMobileOpen }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const { status } = useSession()
+
+  const [logoutLoading, setLogoutLoading] = useState(false)
+
+  const isLoggedIn = status === 'authenticated'
+
+  const handleLogout = async () => {
+    try {
+      setLogoutLoading(true)
+
+      await signOut({
+        redirect: false,
+        callbackUrl: '/login',
+      })
+
+      setMobileOpen?.(false)
+      router.replace('/login')
+      router.refresh()
+    } catch (error) {
+      setLogoutLoading(false)
+    }
+  }
 
   const sidebarContent = (
     <>
@@ -48,12 +72,35 @@ export default function PatientSidebar({ mobileOpen, setMobileOpen }) {
       </div>
 
       <div className="p-4 border-t border-slate-100">
-        <button
-          onClick={() => signOut({ callbackUrl: '/login' })}
-          className="w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors"
-        >
-          Logout
-        </button>
+        {status === 'loading' ? (
+          <div className="w-full h-10 rounded-xl bg-slate-100 animate-pulse" />
+        ) : isLoggedIn ? (
+          <button
+            onClick={handleLogout}
+            disabled={logoutLoading}
+            className="w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {logoutLoading ? 'Logging out...' : 'Logout'}
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <Link
+              href="/login"
+              onClick={() => setMobileOpen?.(false)}
+              className="block w-full px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+            >
+              Login
+            </Link>
+
+            <Link
+              href="/register"
+              onClick={() => setMobileOpen?.(false)}
+              className="block w-full px-3 py-2.5 rounded-xl text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 transition-colors text-center"
+            >
+              Register
+            </Link>
+          </div>
+        )}
       </div>
     </>
   )
