@@ -1,10 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import PatientSidebar from '@/components/patient/PatientSidebar'
-import { mockDoctors } from '@/data/mockDoctors'
 
 function getInitials(name) {
   return name
@@ -43,10 +42,10 @@ function DoctorCard({ doctor }) {
 
             <div className="flex flex-wrap items-center gap-2 mt-3">
               <span className="badge bg-emerald-50 text-emerald-700">
-                ★ {doctor.averageRating}
+                ★ {doctor.averageRating || 0}
               </span>
               <span className="badge bg-slate-100 text-slate-600">
-                {doctor.experienceYears} yrs exp
+                {doctor.experienceYears || 0} yrs exp
               </span>
             </div>
           </div>
@@ -57,21 +56,25 @@ function DoctorCard({ doctor }) {
             <span className="text-slate-400">Fee</span>
             <span className="font-semibold text-slate-800">₹{doctor.consultationFee}</span>
           </div>
+
           <div className="flex justify-between gap-4">
             <span className="text-slate-400">Clinic</span>
-            <span className="font-medium text-slate-700 text-right">{doctor.clinic.name}</span>
+            <span className="font-medium text-slate-700 text-right">
+              {doctor.clinic?.name || 'Clinic'}
+            </span>
           </div>
+
           <div className="flex justify-between gap-4">
             <span className="text-slate-400">Location</span>
             <span className="font-medium text-slate-700 text-right">
-              {doctor.clinic.city}, {doctor.clinic.state}
+              {doctor.clinic?.city || 'City'}, {doctor.clinic?.state || 'State'}
             </span>
           </div>
         </div>
 
         <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
           <p className="text-xs text-slate-400 truncate pr-3">
-            {doctor.clinic.address}
+            {doctor.clinic?.address || 'Clinic address'}
           </p>
           <span className="text-sm font-medium text-primary-600 shrink-0">
             View →
@@ -83,33 +86,113 @@ function DoctorCard({ doctor }) {
 }
 
 export default function PatientDashboardPage() {
-  const { data: session } = useSession()
+  const { status } = useSession()
+
   const [mobileOpen, setMobileOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [doctors, setDoctors] = useState([])
+  const [doctorsLoading, setDoctorsLoading] = useState(true)
+  const [doctorsError, setDoctorsError] = useState('')
 
-  const user = session?.user
+  const [loggedInUser, setLoggedInUser] = useState(null)
+  const [meLoading, setMeLoading] = useState(false)
+
+  const isLoggedIn = status === 'authenticated'
+  const user = loggedInUser
+
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      setDoctorsLoading(true)
+      setDoctorsError('')
+
+      try {
+        const res = await fetch('/api/doctors', {
+          method: 'GET',
+          cache: 'no-store',
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          setDoctorsError(data.message || 'Failed to fetch doctors.')
+          return
+        }
+
+        setDoctors(data.doctors || [])
+      } catch (error) {
+        setDoctorsError('Something went wrong while fetching doctors.')
+      } finally {
+        setDoctorsLoading(false)
+      }
+    }
+
+    fetchDoctors()
+  }, [])
+
+  useEffect(() => {
+    const fetchMe = async () => {
+      if (status !== 'authenticated') {
+        setLoggedInUser(null)
+        return
+      }
+
+      setMeLoading(true)
+
+      try {
+        const res = await fetch('/api/me', {
+          method: 'GET',
+          cache: 'no-store',
+        })
+
+        const data = await res.json()
+
+        if (res.ok && data.success) {
+          setLoggedInUser(data.user)
+        } else {
+          setLoggedInUser(null)
+        }
+      } catch (error) {
+        setLoggedInUser(null)
+      } finally {
+        setMeLoading(false)
+      }
+    }
+
+    fetchMe()
+  }, [status])
 
   const filteredDoctors = useMemo(() => {
     const q = query.trim().toLowerCase()
 
-    if (!q) return mockDoctors
+    if (!q) return doctors
 
-    return mockDoctors.filter(doctor => {
+    return doctors.filter(doctor => {
       const searchText = [
         doctor.name,
         doctor.specialization,
-        doctor.clinic.city,
-        doctor.clinic.state,
-        doctor.clinic.address,
-        doctor.clinic.name,
-        doctor.about,
+        doctor.clinic?.city,
+        doctor.clinic?.state,
+        doctor.clinic?.address,
+        doctor.clinic?.name,
       ]
+        .filter(Boolean)
         .join(' ')
         .toLowerCase()
 
       return searchText.includes(q)
     })
-  }, [query])
+  }, [query, doctors])
+
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface-2">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm text-slate-500">Loading…</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-surface-2">
@@ -129,23 +212,42 @@ export default function PatientDashboardPage() {
               <div>
                 <p className="text-xs text-slate-400">Welcome,</p>
                 <h1 className="text-lg font-semibold text-slate-900">
-                  {user?.name || 'Patient'}
+                  {isLoggedIn ? (meLoading || !user ? 'Loading...' : user.name || 'Patient') : 'Guest'}
                 </h1>
               </div>
             </div>
 
-            <Link
-              href="/profile"
-              className="w-10 h-10 rounded-full bg-primary-50 border border-primary-100 flex items-center justify-center overflow-hidden hover:ring-[3px] hover:ring-primary-500/10 transition-all"
-            >
-              {user?.profileUrl ? (
-                <img src={user.profileUrl} alt={user.name} className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-sm font-semibold text-primary-700">
-                  {getInitials(user?.name || 'Patient')}
-                </span>
-              )}
-            </Link>
+            {isLoggedIn ? (
+              <Link
+                href="/profile"
+                className="w-10 h-10 rounded-full bg-primary-50 border border-primary-100 flex items-center justify-center overflow-hidden hover:ring-[3px] hover:ring-primary-500/10 transition-all"
+              >
+                {meLoading || !user ? (
+                  <div className="w-full h-full bg-slate-100 animate-pulse" />
+                ) : user?.profileUrl ? (
+                  <img src={user.profileUrl} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-sm font-semibold text-primary-700">
+                    {getInitials(user?.name || 'Patient')}
+                  </span>
+                )}
+              </Link>
+            ) : (
+              <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+                <Link
+                  href="/login"
+                  className="px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 hover:text-primary-600 transition-colors"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/register"
+                  className="px-3 py-1.5 text-xs sm:text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                >
+                  Register
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 
@@ -186,12 +288,38 @@ export default function PatientDashboardPage() {
             <div>
               <h2 className="section-title">Available Doctors</h2>
               <p className="text-sm text-slate-500 mt-1">
-                {filteredDoctors.length} doctor(s) found
+                {doctorsLoading
+                  ? 'Loading doctors...'
+                  : `${filteredDoctors.length} doctor(s) found`}
               </p>
             </div>
           </div>
 
-          {filteredDoctors.length > 0 ? (
+          {doctorsError && (
+            <div className="mt-5 bg-red-50 border border-red-200 text-red-700 rounded-2xl p-4 text-sm">
+              {doctorsError}
+            </div>
+          )}
+
+          {doctorsLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mt-5">
+              {[1, 2, 3].map(item => (
+                <div key={item} className="bg-white rounded-2xl border border-slate-100 shadow-card p-5 animate-pulse">
+                  <div className="flex gap-4">
+                    <div className="w-16 h-16 rounded-2xl bg-slate-200" />
+                    <div className="flex-1 space-y-3">
+                      <div className="h-4 bg-slate-200 rounded w-2/3" />
+                      <div className="h-3 bg-slate-200 rounded w-1/2" />
+                    </div>
+                  </div>
+                  <div className="mt-5 space-y-3">
+                    <div className="h-3 bg-slate-200 rounded" />
+                    <div className="h-3 bg-slate-200 rounded w-3/4" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredDoctors.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mt-5">
               {filteredDoctors.map(doctor => (
                 <DoctorCard key={doctor._id} doctor={doctor} />

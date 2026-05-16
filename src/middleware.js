@@ -11,9 +11,8 @@ export async function middleware(req) {
 
   const isLoggedIn = Boolean(token);
 
-  // Patient protected routes without /patient prefix
+  // Patient protected routes only
   const isPatientRoute =
-    pathname.startsWith("/dashboard") ||
     pathname.startsWith("/profile") ||
     pathname.startsWith("/appointments") ||
     pathname.startsWith("/prescriptions") ||
@@ -32,8 +31,8 @@ export async function middleware(req) {
     pathname.startsWith("/verify-otp") ||
     pathname.startsWith("/reset-password");
 
-  // 1. If not logged in and trying protected route i.e. doctor routes
-  if (!isLoggedIn && isDoctorRoute) {
+  // 1. If not logged in and trying protected patient/doctor route
+  if (!isLoggedIn && (isPatientRoute || isDoctorRoute)) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
@@ -65,7 +64,6 @@ export async function middleware(req) {
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
     "/profile/:path*",
     "/appointments/:path*",
     "/prescriptions/:path*",

@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import PatientSidebar from '@/components/patient/PatientSidebar'
@@ -19,15 +19,50 @@ export default function PatientProfilePage() {
   const fileInputRef = useRef(null)
 
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [name, setName] = useState(session?.user?.name || '')
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
   const [profileImage, setProfileImage] = useState(null)
-  const [preview, setPreview] = useState(session?.user?.profileUrl || null)
+  const [preview, setPreview] = useState(null)
   const [removeImage, setRemoveImage] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [fetching, setFetching] = useState(true)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
   const user = session?.user
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setFetching(true)
+      setError('')
+
+      try {
+        const res = await fetch('/api/patient/profile', {
+          method: 'GET',
+          cache: 'no-store',
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          setError(data.message || 'Failed to fetch profile.')
+          return
+        }
+
+        setName(data.patient?.name || '')
+        setEmail(data.patient?.email || '')
+        setPreview(data.patient?.profileUrl || null)
+        setRemoveImage(false)
+        setProfileImage(null)
+      } catch (err) {
+        setError('Something went wrong while fetching profile.')
+      } finally {
+        setFetching(false)
+      }
+    }
+
+    fetchProfile()
+  }, [])
 
   const handleImageChange = e => {
     const file = e.target.files?.[0]
@@ -47,13 +82,19 @@ export default function PatientProfilePage() {
     setPreview(URL.createObjectURL(file))
     setRemoveImage(false)
     setError('')
+    setMessage('')
   }
 
   const handleDeleteImage = () => {
     setProfileImage(null)
     setPreview(null)
     setRemoveImage(true)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    setError('')
+    setMessage('')
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
   }
 
   const handleSubmit = async e => {
@@ -70,6 +111,7 @@ export default function PatientProfilePage() {
 
     try {
       const formData = new FormData()
+
       formData.append('name', name.trim())
       formData.append('removeImage', removeImage ? 'true' : 'false')
 
@@ -77,8 +119,6 @@ export default function PatientProfilePage() {
         formData.append('profileImage', profileImage)
       }
 
-      // Create this backend later:
-      // PATCH /api/patient/profile
       const res = await fetch('/api/patient/profile', {
         method: 'PATCH',
         body: formData,
@@ -91,16 +131,27 @@ export default function PatientProfilePage() {
         return
       }
 
+      const updatedPatient = data.patient
+
+      setName(updatedPatient?.name || name.trim())
+      setEmail(updatedPatient?.email || email)
+      setPreview(updatedPatient?.profileUrl || null)
+      setProfileImage(null)
+      setRemoveImage(false)
       setMessage('Profile updated successfully.')
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
 
       if (update) {
         await update({
-          name: data.patient?.name || name.trim(),
-          profileUrl: data.patient?.profileUrl || null,
+          name: updatedPatient?.name || name.trim(),
+          profileUrl: updatedPatient?.profileUrl || null,
         })
       }
-    } catch {
-      setError('Profile API is not ready yet. UI is connected, backend route is needed.')
+    } catch (err) {
+      setError('Something went wrong while updating profile.')
     } finally {
       setLoading(false)
     }
@@ -214,14 +265,15 @@ export default function PatientProfilePage() {
                     setMessage('')
                   }}
                   className="input-base"
-                  placeholder="Your name"
+                  placeholder={fetching ? 'Loading...' : 'Your name'}
+                  disabled={fetching}
                 />
               </div>
 
               <div>
                 <label className="label">Email Address</label>
                 <input
-                  value={user?.email || ''}
+                  value={email || user?.email || ''}
                   disabled
                   className="input-base bg-slate-50 text-slate-400 cursor-not-allowed"
                 />
@@ -232,7 +284,7 @@ export default function PatientProfilePage() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || fetching}
                 className="btn-primary w-full py-3"
               >
                 {loading ? 'Saving...' : 'Save Changes'}

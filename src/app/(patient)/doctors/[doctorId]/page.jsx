@@ -1,10 +1,10 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import PatientSidebar from '@/components/patient/PatientSidebar'
-import { mockDoctors } from '@/data/mockDoctors'
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -37,20 +37,97 @@ function getNextSevenDays() {
 }
 
 function getDayAvailability(doctor, dayOfWeek) {
-  return doctor.availability?.find(day => day.dayOfWeek === dayOfWeek && day.isAvailable)
+  return doctor?.availability?.find(day => day.dayOfWeek === dayOfWeek && day.isAvailable)
 }
 
 export default function DoctorDetailPage() {
   const params = useParams()
+  const router = useRouter()
+  const { status } = useSession()
+
   const [mobileOpen, setMobileOpen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [selectedSlot, setSelectedSlot] = useState(null)
   const [mode, setMode] = useState('online')
 
-  const doctor = mockDoctors.find(doc => doc._id === params.doctorId)
+  const [doctor, setDoctor] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [showLoginCard, setShowLoginCard] = useState(false)
+
   const nextDays = useMemo(() => getNextSevenDays(), [])
 
-  if (!doctor) {
+  useEffect(() => {
+    const fetchDoctor = async () => {
+      if (!params?.doctorId) return
+
+      setLoading(true)
+      setError('')
+
+      try {
+        const res = await fetch(`/api/doctors/${params.doctorId}`, {
+          method: 'GET',
+          cache: 'no-store',
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          setError(data.message || 'Doctor not found')
+          setDoctor(null)
+          return
+        }
+
+        setDoctor(data.doctor)
+      } catch (err) {
+        setError('Something went wrong while fetching doctor details.')
+        setDoctor(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDoctor()
+  }, [params?.doctorId])
+
+  const handleBookAppointment = () => {
+    if (!selectedSlot) return
+
+    if (status !== 'authenticated') {
+      setShowLoginCard(true)
+      return
+    }
+
+    // Later connect this with actual booking page/API
+    router.push(
+      `/appointments/book?doctorId=${doctor._id}&mode=${mode}&slot=${encodeURIComponent(selectedSlot)}`
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-surface-2">
+        <PatientSidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+
+        <main className="lg:pl-64">
+          <div className="px-4 sm:px-6 lg:px-8 py-8">
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-card p-8 animate-pulse">
+              <div className="flex gap-6">
+                <div className="w-28 h-28 rounded-3xl bg-slate-200" />
+                <div className="flex-1 space-y-4">
+                  <div className="h-7 bg-slate-200 rounded w-1/2" />
+                  <div className="h-4 bg-slate-200 rounded w-1/3" />
+                  <div className="h-4 bg-slate-200 rounded w-2/3" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (!doctor || error) {
     return (
       <div className="min-h-screen bg-surface-2 flex items-center justify-center px-4">
         <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-8 text-center max-w-md">
@@ -59,7 +136,7 @@ export default function DoctorDetailPage() {
             Doctor not found
           </h1>
           <p className="text-sm text-slate-500 mt-2">
-            The doctor profile you are looking for does not exist.
+            {error || 'The doctor profile you are looking for does not exist.'}
           </p>
           <Link href="/dashboard" className="btn-primary mt-6">
             Back to Dashboard
@@ -122,13 +199,13 @@ export default function DoctorDetailPage() {
 
                         <div className="flex flex-wrap gap-2 mt-4">
                           <span className="badge bg-emerald-50 text-emerald-700">
-                            ★ {doctor.averageRating} rating
+                            ★ {doctor.averageRating || 0} rating
                           </span>
                           <span className="badge bg-slate-100 text-slate-600">
-                            {doctor.totalFeedbacks} reviews
+                            {doctor.totalFeedbacks || 0} reviews
                           </span>
                           <span className="badge bg-blue-50 text-blue-700">
-                            {doctor.experienceYears} yrs experience
+                            {doctor.experienceYears || 0} yrs experience
                           </span>
                         </div>
                       </div>
@@ -142,7 +219,8 @@ export default function DoctorDetailPage() {
                     </div>
 
                     <p className="text-sm text-slate-600 leading-relaxed mt-6">
-                      {doctor.about}
+                      {doctor.about ||
+                        `${doctor.name} is a ${doctor.specialization} with ${doctor.experienceYears || 0} years of experience. You can book an online or offline consultation based on available slots.`}
                     </p>
                   </div>
                 </div>
@@ -155,21 +233,21 @@ export default function DoctorDetailPage() {
                   <div className="rounded-2xl bg-surface-2 p-5">
                     <p className="text-xs text-slate-400">Clinic Name</p>
                     <p className="text-sm font-semibold text-slate-800 mt-1">
-                      {doctor.clinic.name}
+                      {doctor.clinic?.name}
                     </p>
                   </div>
 
                   <div className="rounded-2xl bg-surface-2 p-5">
                     <p className="text-xs text-slate-400">Location</p>
                     <p className="text-sm font-semibold text-slate-800 mt-1">
-                      {doctor.clinic.city}, {doctor.clinic.state}
+                      {doctor.clinic?.city}, {doctor.clinic?.state}
                     </p>
                   </div>
 
                   <div className="md:col-span-2 rounded-2xl bg-surface-2 p-5">
                     <p className="text-xs text-slate-400">Full Address</p>
                     <p className="text-sm font-semibold text-slate-800 mt-1">
-                      {doctor.clinic.address}, {doctor.clinic.city}, {doctor.clinic.state} - {doctor.clinic.pincode}
+                      {doctor.clinic?.address}, {doctor.clinic?.city}, {doctor.clinic?.state} - {doctor.clinic?.pincode}
                     </p>
                   </div>
                 </div>
@@ -220,6 +298,7 @@ export default function DoctorDetailPage() {
                         onClick={() => {
                           setSelectedIndex(index)
                           setSelectedSlot(null)
+                          setShowLoginCard(false)
                         }}
                         className={`min-w-[76px] rounded-2xl border px-3 py-3 text-center transition-all ${
                           active
@@ -250,7 +329,10 @@ export default function DoctorDetailPage() {
                       return (
                         <button
                           key={index}
-                          onClick={() => setSelectedSlot(label)}
+                          onClick={() => {
+                            setSelectedSlot(label)
+                            setShowLoginCard(false)
+                          }}
                           className={`px-3 py-2.5 rounded-xl border text-xs font-medium transition-all ${
                             active
                               ? 'bg-primary-600 text-white border-primary-600'
@@ -272,7 +354,34 @@ export default function DoctorDetailPage() {
                 )}
               </div>
 
+              {showLoginCard && (
+                <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm font-semibold text-amber-800">
+                    You are not logged in
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    Please login first to book an appointment with this doctor.
+                  </p>
+
+                  <div className="flex gap-2 mt-3">
+                    <Link
+                      href="/login"
+                      className="flex-1 text-center px-3 py-2 rounded-xl bg-primary-600 text-white text-xs font-medium hover:bg-primary-700 transition-colors"
+                    >
+                      Login
+                    </Link>
+                    <Link
+                      href="/register"
+                      className="flex-1 text-center px-3 py-2 rounded-xl bg-white text-slate-700 border border-slate-200 text-xs font-medium hover:bg-slate-50 transition-colors"
+                    >
+                      Register
+                    </Link>
+                  </div>
+                </div>
+              )}
+
               <button
+                onClick={handleBookAppointment}
                 disabled={!selectedSlot}
                 className="btn-primary w-full py-3 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
               >
