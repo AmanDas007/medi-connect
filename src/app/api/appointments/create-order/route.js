@@ -36,18 +36,13 @@ export async function POST(req) {
 
     if (auth.error) return auth.error;
 
-    const { doctorId, appointmentDate, startTime, endTime, mode } = await req.json();
+    const { doctorId, appointmentDate, startTime, endTime } = await req.json();
 
-    if (!doctorId || !appointmentDate || !startTime || !endTime || !mode) {
-      return NextResponse.json(
-        { success: false, message: "Doctor, date, slot and mode are required" },
-        { status: 400 }
-      );
-    }
+    const mode = "offline";
 
-    if (!["online", "offline"].includes(mode)) {
+    if (!doctorId || !appointmentDate || !startTime || !endTime) {
       return NextResponse.json(
-        { success: false, message: "Invalid appointment mode" },
+        { success: false, message: "Doctor, date and slot are required" },
         { status: 400 }
       );
     }
@@ -116,7 +111,6 @@ export async function POST(req) {
 
     const activeSlotKey = `${doctor._id}_${slotStart.toISOString()}`;
 
-    // Release expired pending-payment locks for this doctor
     await Appointment.updateMany(
       {
         doctor: doctor._id,
@@ -129,14 +123,13 @@ export async function POST(req) {
       }
     );
 
-    // MongoDB unique activeSlotKey is the real final lock
     appointment = await Appointment.create({
       patient: auth.user.id,
       doctor: doctor._id,
       patientName: auth.user.name || "Patient",
       slotStart,
       slotEnd,
-      mode,
+      mode: "offline",
       status: "pending-payment",
       paymentExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
       activeSlotKey,
@@ -154,6 +147,7 @@ export async function POST(req) {
         appointmentId: appointment._id.toString(),
         doctorId: doctor._id.toString(),
         patientId: auth.user.id.toString(),
+        mode: "offline",
       },
     });
 
@@ -177,6 +171,7 @@ export async function POST(req) {
         currency: "INR",
         appointmentId: appointment._id,
         paymentId: payment._id,
+        mode: "offline",
         doctor: {
           id: doctor._id,
           name: doctor.name,

@@ -35,11 +35,36 @@ function formatTime(dateString) {
 function getStatusLabel(status) {
   if (status === 'confirmed') return 'Confirmed'
   if (status === 'pending-payment') return 'Pending Payment'
+  if (status === 'completed') return 'Completed'
   return status
 }
 
-function PatientCard({ appointment }) {
+function getStatusBadgeClass(status) {
+  if (status === 'confirmed') return 'bg-slate-100 text-slate-600'
+  if (status === 'pending-payment') return 'bg-amber-50 text-amber-700'
+  if (status === 'completed') return 'bg-emerald-50 text-emerald-700'
+  return 'bg-slate-100 text-slate-600'
+}
+
+function PatientCard({
+  appointment,
+  onComplete,
+  onAutoComplete,
+  completingId,
+  autoCompletingId,
+  nowTick,
+}) {
   const patient = appointment.patient
+
+  const slotStartTime = new Date(appointment.slotStart).getTime()
+  const slotEndTime = new Date(appointment.slotEnd).getTime()
+
+  const isSlotRunning =
+    appointment.status === 'confirmed' &&
+    slotStartTime <= nowTick &&
+    slotEndTime >= nowTick
+
+  const showRunningActions = appointment.canMarkCompleted || isSlotRunning
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-5 hover:shadow-card-hover transition-all duration-200">
@@ -69,19 +94,63 @@ function PatientCard({ appointment }) {
             </span>
 
             <span className="badge bg-emerald-50 text-emerald-700 capitalize">
-              {appointment.mode}
+              {appointment.mode || 'offline'}
             </span>
 
-            <span
-              className={`badge ${
-                appointment.status === 'confirmed'
-                  ? 'bg-slate-100 text-slate-600'
-                  : 'bg-amber-50 text-amber-700'
-              }`}
-            >
+            <span className={`badge ${getStatusBadgeClass(appointment.status)}`}>
               {getStatusLabel(appointment.status)}
             </span>
           </div>
+
+          {showRunningActions && (
+            <div className="mt-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-3">
+              <p className="text-xs text-emerald-700 leading-relaxed">
+                This slot is currently running. You can mark it done now, or enable auto mark done after slot ends.
+              </p>
+
+              {appointment.autoCompleteAfterSlot ? (
+                <div className="mt-3 rounded-xl bg-white border border-emerald-200 px-3 py-2">
+                  <p className="text-xs font-medium text-emerald-700">
+                    Auto mark done is enabled
+                  </p>
+                  <p className="text-[11px] text-emerald-600 mt-0.5">
+                    This appointment will be completed automatically after the slot ends.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+                  <button
+                    type="button"
+                    onClick={() => onComplete(appointment._id)}
+                    disabled={completingId === appointment._id}
+                    className="w-full px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {completingId === appointment._id ? 'Completing...' : 'Mark as Done'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onAutoComplete(appointment._id)}
+                    disabled={autoCompletingId === appointment._id}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white text-emerald-700 border border-emerald-200 text-xs font-medium hover:bg-emerald-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {autoCompletingId === appointment._id ? 'Enabling...' : 'Auto Mark Done'}
+                  </button>
+                </div>
+              )}
+
+              {appointment.autoCompleteAfterSlot && (
+                <button
+                  type="button"
+                  onClick={() => onComplete(appointment._id)}
+                  disabled={completingId === appointment._id}
+                  className="w-full mt-3 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {completingId === appointment._id ? 'Completing...' : 'Mark Done Now'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -100,7 +169,51 @@ export default function DoctorDashboardPage() {
   const [appointmentsLoading, setAppointmentsLoading] = useState(true)
   const [error, setError] = useState('')
 
+  const [completingId, setCompletingId] = useState(null)
+  const [autoCompletingId, setAutoCompletingId] = useState(null)
+  const [completeMessage, setCompleteMessage] = useState('')
+  const [completeError, setCompleteError] = useState('')
+  const [nowTick, setNowTick] = useState(Date.now())
+
   const isLoggedIn = status === 'authenticated'
+
+  const fetchTodayAppointments = async () => {
+    if (status !== 'authenticated') {
+      setAppointmentsLoading(false)
+      return
+    }
+
+    setAppointmentsLoading(true)
+
+    try {
+      const today = getTodayDateString()
+
+      const res = await fetch(`/api/doctor/applicants?date=${today}&status=${statusFilter}`, {
+        method: 'GET',
+        cache: 'no-store',
+      })
+
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        setTodayAppointments(data.appointments || [])
+      } else {
+        setTodayAppointments([])
+      }
+    } catch {
+      setTodayAppointments([])
+    } finally {
+      setAppointmentsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNowTick(Date.now())
+    }, 30000)
+
+    return () => clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     const fetchDoctor = async () => {
@@ -135,37 +248,17 @@ export default function DoctorDashboardPage() {
   }, [status])
 
   useEffect(() => {
-    const fetchTodayAppointments = async () => {
-      if (status !== 'authenticated') {
-        setAppointmentsLoading(false)
-        return
-      }
-
-      setAppointmentsLoading(true)
-
-      try {
-        const today = getTodayDateString()
-
-        const res = await fetch(`/api/doctor/applicants?date=${today}&status=${statusFilter}`, {
-          method: 'GET',
-          cache: 'no-store',
-        })
-
-        const data = await res.json()
-
-        if (res.ok && data.success) {
-          setTodayAppointments(data.appointments || [])
-        } else {
-          setTodayAppointments([])
-        }
-      } catch {
-        setTodayAppointments([])
-      } finally {
-        setAppointmentsLoading(false)
-      }
-    }
-
     fetchTodayAppointments()
+  }, [status, statusFilter])
+
+  useEffect(() => {
+    if (status !== 'authenticated') return
+
+    const interval = setInterval(() => {
+      fetchTodayAppointments()
+    }, 30000)
+
+    return () => clearInterval(interval)
   }, [status, statusFilter])
 
   const todayAvailability = useMemo(() => {
@@ -175,6 +268,62 @@ export default function DoctorDashboardPage() {
 
     return doctor.availability.find(day => day.dayOfWeek === today)
   }, [doctor])
+
+  const handleCompleteAppointment = async appointmentId => {
+    if (!appointmentId || completingId) return
+
+    setCompletingId(appointmentId)
+    setCompleteError('')
+    setCompleteMessage('')
+
+    try {
+      const res = await fetch(`/api/doctor/appointments/${appointmentId}/complete`, {
+        method: 'POST',
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setCompleteError(data.message || 'Failed to complete appointment.')
+        return
+      }
+
+      setCompleteMessage(data.message || 'Appointment marked as completed.')
+      await fetchTodayAppointments()
+    } catch {
+      setCompleteError('Something went wrong while completing appointment.')
+    } finally {
+      setCompletingId(null)
+    }
+  }
+
+  const handleAutoCompleteAppointment = async appointmentId => {
+    if (!appointmentId || autoCompletingId) return
+
+    setAutoCompletingId(appointmentId)
+    setCompleteError('')
+    setCompleteMessage('')
+
+    try {
+      const res = await fetch(`/api/doctor/appointments/${appointmentId}/auto-complete`, {
+        method: 'POST',
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setCompleteError(data.message || 'Failed to enable auto mark done.')
+        return
+      }
+
+      setCompleteMessage(data.message || 'Auto mark done enabled.')
+      await fetchTodayAppointments()
+    } catch {
+      setCompleteError('Something went wrong while enabling auto mark done.')
+    } finally {
+      setAutoCompletingId(null)
+    }
+  }
 
   if (status === 'loading') {
     return (
@@ -245,6 +394,18 @@ export default function DoctorDashboardPage() {
             </div>
           )}
 
+          {completeError && (
+            <div className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-2xl p-4 text-sm">
+              {completeError}
+            </div>
+          )}
+
+          {completeMessage && (
+            <div className="mb-6 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl p-4 text-sm">
+              {completeMessage}
+            </div>
+          )}
+
           <section className="bg-gradient-to-br from-primary-600 to-primary-800 rounded-3xl p-6 md:p-8 text-white overflow-hidden relative">
             <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3" />
 
@@ -278,6 +439,7 @@ export default function DoctorDashboardPage() {
                   >
                     <option value="confirmed">Confirmed</option>
                     <option value="pending">Pending Payment</option>
+                    <option value="completed">Completed</option>
                     <option value="all">All</option>
                   </select>
 
@@ -308,7 +470,15 @@ export default function DoctorDashboardPage() {
               ) : todayAppointments.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {todayAppointments.map(appointment => (
-                    <PatientCard key={appointment._id} appointment={appointment} />
+                    <PatientCard
+                      key={appointment._id}
+                      appointment={appointment}
+                      onComplete={handleCompleteAppointment}
+                      onAutoComplete={handleAutoCompleteAppointment}
+                      completingId={completingId}
+                      autoCompletingId={autoCompletingId}
+                      nowTick={nowTick}
+                    />
                   ))}
                 </div>
               ) : (

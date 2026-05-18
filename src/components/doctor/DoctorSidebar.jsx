@@ -7,10 +7,10 @@ import { useState } from 'react'
 
 const navItems = [
   { label: 'Dashboard', href: '/doctor/dashboard' },
-  { label: 'Profile', href: '/doctor/profile' },
   { label: 'Applicants', href: '/doctor/applicants' },
-  { label: 'View Feedbacks', href: '/doctor/feedbacks' },
   { label: 'History', href: '/doctor/history' },
+  { label: 'View Feedbacks', href: '/doctor/feedbacks' },
+  { label: 'Profile', href: '/doctor/profile' },
 ]
 
 export default function DoctorSidebar({ mobileOpen, setMobileOpen }) {

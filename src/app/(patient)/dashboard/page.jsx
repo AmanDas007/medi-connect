@@ -21,6 +21,13 @@ function formatTime(dateString) {
   })
 }
 
+function isUpcomingConfirmedTodayAppointment(appointment) {
+  return (
+    appointment.status === 'confirmed' &&
+    new Date(appointment.slotEnd).getTime() > Date.now()
+  )
+}
+
 function DoctorCard({ doctor }) {
   return (
     <Link
@@ -96,7 +103,10 @@ function ReminderCard({ appointment }) {
   const doctor = appointment.doctor
 
   return (
-    <div className="bg-white rounded-2xl border border-primary-100 shadow-card p-5">
+    <Link
+      href={`/appointments/${appointment._id}`}
+      className="block bg-white rounded-2xl border border-primary-100 shadow-card p-5"
+    >
       <div className="flex items-start gap-4">
         <div className="w-14 h-14 rounded-2xl bg-primary-50 border border-primary-100 flex items-center justify-center overflow-hidden shrink-0">
           {doctor?.profileUrl ? (
@@ -151,7 +161,7 @@ function ReminderCard({ appointment }) {
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   )
 }
 
@@ -252,7 +262,11 @@ export default function PatientDashboardPage() {
         const data = await res.json()
 
         if (res.ok && data.success) {
-          setTodayAppointments(data.appointments || [])
+          const upcomingConfirmedAppointments = (data.appointments || []).filter(
+            isUpcomingConfirmedTodayAppointment
+          )
+
+          setTodayAppointments(upcomingConfirmedAppointments)
         } else {
           setTodayAppointments([])
         }
@@ -375,7 +389,7 @@ export default function PatientDashboardPage() {
                 <div>
                   <h2 className="section-title">Reminder</h2>
                   <p className="text-sm text-slate-500 mt-1">
-                    Your confirmed appointments for today
+                    Your upcoming confirmed appointments for today
                   </p>
                 </div>
               </div>

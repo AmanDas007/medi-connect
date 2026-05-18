@@ -48,6 +48,16 @@ function getDateString(date) {
   return `${year}-${month}-${day}`
 }
 
+function getSlotStartDate(selectedDate, startTime) {
+  const appointmentDate = getDateString(selectedDate)
+  return new Date(`${appointmentDate}T${startTime}:00+05:30`)
+}
+
+function getTimeMinutes(time) {
+  const [hour, minute] = time.split(':').map(Number)
+  return hour * 60 + minute
+}
+
 function loadRazorpayScript() {
   return new Promise(resolve => {
     if (typeof window !== 'undefined' && window.Razorpay) {
@@ -71,7 +81,6 @@ export default function DoctorDetailPage() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [selectedSlot, setSelectedSlot] = useState(null)
-  const [mode, setMode] = useState('online')
 
   const [doctor, setDoctor] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -84,12 +93,34 @@ export default function DoctorDetailPage() {
 
   const [bookedSlotLabels, setBookedSlotLabels] = useState([])
   const [bookedSlotsLoading, setBookedSlotsLoading] = useState(false)
+  const [nowTick, setNowTick] = useState(Date.now())
 
   const nextDays = useMemo(() => getNextSevenDays(), [])
 
   const selectedDay = nextDays[selectedIndex]
   const selectedAvailability = getDayAvailability(doctor, selectedDay?.dayOfWeek)
   const slots = selectedAvailability?.slots || []
+
+  const sortedSlots = useMemo(() => {
+    return [...slots].sort((a, b) => {
+      return getTimeMinutes(a.startTime) - getTimeMinutes(b.startTime)
+    })
+  }, [slots])
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNowTick(Date.now())
+    }, 30000)
+
+    return () => clearInterval(timer)
+  }, [])
+
+  const isPastSlot = slot => {
+    if (!selectedDay?.date || !slot?.startTime) return false
+
+    const slotStart = getSlotStartDate(selectedDay.date, slot.startTime)
+    return slotStart.getTime() <= nowTick
+  }
 
   useEffect(() => {
     const fetchDoctor = async () => {
@@ -160,6 +191,16 @@ export default function DoctorDetailPage() {
     fetchBookedSlots()
   }, [doctor?._id, selectedIndex])
 
+  useEffect(() => {
+    if (!selectedSlot) return
+
+    const selected = sortedSlots.find(slot => `${slot.startTime} - ${slot.endTime}` === selectedSlot)
+
+    if (selected && isPastSlot(selected)) {
+      setSelectedSlot(null)
+    }
+  }, [nowTick, selectedSlot, sortedSlots])
+
   const releasePendingAppointment = async appointmentId => {
     if (!appointmentId) return
 
@@ -174,6 +215,14 @@ export default function DoctorDetailPage() {
 
   const handleBookAppointment = async () => {
     if (!selectedSlot || bookingLoading) return
+
+    const selected = sortedSlots.find(slot => `${slot.startTime} - ${slot.endTime}` === selectedSlot)
+
+    if (selected && isPastSlot(selected)) {
+      setSelectedSlot(null)
+      setBookingError('This slot time has already passed. Please choose another slot.')
+      return
+    }
 
     if (bookedSlotLabels.includes(selectedSlot)) {
       setSelectedSlot(null)
@@ -216,7 +265,7 @@ export default function DoctorDetailPage() {
           appointmentDate,
           startTime,
           endTime,
-          mode,
+          mode: 'offline',
         }),
       })
 
@@ -233,7 +282,7 @@ export default function DoctorDetailPage() {
         amount: orderData.amount,
         currency: orderData.currency,
         name: 'MediConnect',
-        description: `Appointment with ${doctor.name}`,
+        description: `Offline appointment with ${doctor.name}`,
         order_id: orderData.orderId,
 
         prefill: {
@@ -244,7 +293,7 @@ export default function DoctorDetailPage() {
         notes: {
           appointmentId: orderData.appointmentId,
           doctorId: doctor._id,
-          mode,
+          mode: 'offline',
           slot: selectedSlot,
         },
 
@@ -430,7 +479,7 @@ export default function DoctorDetailPage() {
 
                     <p className="text-sm text-slate-600 leading-relaxed mt-6">
                       {doctor.about ||
-                        `${doctor.name} is a ${doctor.specialization} with ${doctor.experienceYears || 0} years of experience. You can book an online or offline consultation based on available slots.`}
+                        `${doctor.name} is a ${doctor.specialization} with ${doctor.experienceYears || 0} years of experience. You can book an offline appointment based on available slots.`}
                     </p>
                   </div>
                 </div>
@@ -467,31 +516,14 @@ export default function DoctorDetailPage() {
             <aside className="bg-white rounded-3xl border border-slate-100 shadow-card p-5 h-fit xl:sticky xl:top-24">
               <h2 className="text-lg font-semibold text-slate-900">Book Appointment</h2>
               <p className="text-sm text-slate-500 mt-1">
-                Choose consultation mode and available slot.
+                Choose an available offline appointment slot.
               </p>
 
-              <div className="grid grid-cols-2 gap-2 mt-5 bg-surface-2 rounded-2xl p-1">
-                <button
-                  onClick={() => setMode('online')}
-                  className={`py-2 rounded-xl text-sm font-medium transition-colors ${
-                    mode === 'online'
-                      ? 'bg-white text-primary-700 shadow-card'
-                      : 'text-slate-500'
-                  }`}
-                >
-                  Online
-                </button>
-
-                <button
-                  onClick={() => setMode('offline')}
-                  className={`py-2 rounded-xl text-sm font-medium transition-colors ${
-                    mode === 'offline'
-                      ? 'bg-white text-primary-700 shadow-card'
-                      : 'text-slate-500'
-                  }`}
-                >
-                  Offline
-                </button>
+              <div className="mt-5 rounded-2xl bg-primary-50 border border-primary-100 p-4">
+                <p className="text-xs text-primary-500">Consultation Mode</p>
+                <p className="text-sm font-semibold text-primary-700 mt-1">
+                  Offline clinic visit
+                </p>
               </div>
 
               <div className="mt-6">
@@ -533,19 +565,20 @@ export default function DoctorDetailPage() {
               <div className="mt-6">
                 <p className="text-sm font-medium text-slate-700 mb-3">Available Slots</p>
 
-                {slots.length > 0 ? (
+                {sortedSlots.length > 0 ? (
                   <div className="grid grid-cols-2 gap-2">
-                    {slots.map((slot, index) => {
+                    {sortedSlots.map((slot, index) => {
                       const label = `${slot.startTime} - ${slot.endTime}`
                       const active = selectedSlot === label
                       const isBooked = bookedSlotLabels.includes(label)
+                      const isPast = isPastSlot(slot)
 
                       return (
                         <button
                           key={index}
-                          disabled={isBooked || bookedSlotsLoading}
+                          disabled={isBooked || isPast || bookedSlotsLoading}
                           onClick={() => {
-                            if (isBooked) return
+                            if (isBooked || isPast) return
 
                             setSelectedSlot(label)
                             setShowLoginCard(false)
@@ -553,14 +586,14 @@ export default function DoctorDetailPage() {
                             setBookingSuccess('')
                           }}
                           className={`px-3 py-2.5 rounded-xl border text-xs font-medium transition-all ${
-                            isBooked
+                            isBooked || isPast
                               ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-70'
                               : active
                                 ? 'bg-primary-600 text-white border-primary-600'
                                 : 'bg-white text-slate-700 border-slate-200 hover:border-primary-300 hover:bg-primary-50'
                           }`}
                         >
-                          {isBooked ? `${label} Booked` : label}
+                          {isBooked ? `${label} Booked` : isPast ? `${label} Past` : label}
                         </button>
                       )
                     })}

@@ -2,33 +2,63 @@ import { NextResponse } from "next/server";
 
 import connectDB from "@/db/connect";
 import Appointment from "@/models/Appointment";
-import Payment from "@/models/Payment";
 import { requireDoctor } from "@/lib/apiAuth";
 
-function isValidDateString(date) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(date);
-}
-
-function getISTDayRange(dateString) {
+function getISTDateRange(dateString) {
   const start = new Date(`${dateString}T00:00:00+05:30`);
-  const end = new Date(`${dateString}T24:00:00+05:30`);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
 
   return { start, end };
 }
 
-function getTodayISTDateString() {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
+async function autoCompleteEndedAppointments(doctorId) {
+    const now = new Date();
+  
+    await Appointment.updateMany(
+      {
+        doctor: doctorId,
+        status: "confirmed",
+        autoCompleteAfterSlot: true,
+        slotEnd: { $lt: now },
+      },
+      {
+        $set: {
+          status: "completed",
+        },
+      }
+    );
+  }
 
-  const day = parts.find(p => p.type === "day")?.value;
-  const month = parts.find(p => p.type === "month")?.value;
-  const year = parts.find(p => p.type === "year")?.value;
+function formatAppointment(app) {
+  const now = new Date();
 
-  return `${year}-${month}-${day}`;
+  const slotStart = new Date(app.slotStart);
+  const slotEnd = new Date(app.slotEnd);
+
+  const isSlotRunning =
+    app.status === "confirmed" &&
+    slotStart.getTime() <= now.getTime() &&
+    slotEnd.getTime() >= now.getTime();
+
+  return {
+    _id: app._id,
+    patient: app.patient,
+    doctor: app.doctor,
+    patientName: app.patientName,
+    slotStart: app.slotStart,
+    slotEnd: app.slotEnd,
+    mode: app.mode,
+    status: app.status,
+    paymentExpiresAt: app.paymentExpiresAt,
+    cancelledBy: app.cancelledBy,
+    cancelledAt: app.cancelledAt,
+    autoCompleteAfterSlot: Boolean(app.autoCompleteAfterSlot),
+    feedbackGiven: app.feedbackGiven,
+    createdAt: app.createdAt,
+    updatedAt: app.updatedAt,
+    canMarkCompleted: isSlotRunning,
+  };
 }
 
 export async function GET(req) {
@@ -39,105 +69,59 @@ export async function GET(req) {
 
     if (auth.error) return auth.error;
 
+    await autoCompleteEndedAppointments(auth.user.id);
+
     const { searchParams } = new URL(req.url);
 
     const date = searchParams.get("date");
     const status = searchParams.get("status") || "confirmed";
 
-    if (!date || !isValidDateString(date)) {
+    if (!date) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Valid date is required in YYYY-MM-DD format",
-        },
+        { success: false, message: "Date is required" },
         { status: 400 }
       );
     }
 
-    const todayIST = getTodayISTDateString();
+    const { start, end } = getISTDateRange(date);
 
-    if (date < todayIST) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "This API is only for today or future dates. Use history for past dates.",
-        },
-        { status: 400 }
-      );
-    }
-
-    let statusFilter = ["confirmed"];
-
-    if (status === "pending") {
-      statusFilter = ["pending-payment"];
-    } else if (status === "all") {
-      statusFilter = ["pending-payment", "confirmed"];
-    } else if (status === "confirmed") {
-      statusFilter = ["confirmed"];
-    } else {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid status filter",
-        },
-        { status: 400 }
-      );
-    }
-
-    const { start, end } = getISTDayRange(date);
-
-    const appointments = await Appointment.find({
+    const query = {
       doctor: auth.user.id,
       slotStart: {
         $gte: start,
         $lt: end,
       },
-      status: {
-        $in: statusFilter,
-      },
-    })
+    };
+
+    if (status === "confirmed") {
+      query.status = "confirmed";
+    } else if (status === "pending") {
+      query.status = "pending-payment";
+    } else if (status === "completed") {
+      query.status = "completed";
+    } else if (status === "all") {
+      query.status = {
+        $in: ["pending-payment", "confirmed", "completed"],
+      };
+    } else {
+      return NextResponse.json(
+        { success: false, message: "Invalid status filter" },
+        { status: 400 }
+      );
+    }
+
+    const appointments = await Appointment.find(query)
       .populate({
         path: "patient",
-        select: "name email profileUrl isBlocked",
+        select: "name email profileUrl",
       })
       .sort({ slotStart: 1 })
       .lean();
 
-    const appointmentIds = appointments.map(app => app._id);
-
-    const payments = await Payment.find({
-      appointment: { $in: appointmentIds },
-    })
-      .select("appointment amount status gateway paidAt")
-      .lean();
-
-    const paymentMap = new Map(
-      payments.map(payment => [payment.appointment.toString(), payment])
-    );
-
-    const formattedAppointments = appointments.map(app => {
-      const payment = paymentMap.get(app._id.toString());
-
-      return {
-        _id: app._id,
-        patient: app.patient,
-        patientName: app.patientName,
-        slotStart: app.slotStart,
-        slotEnd: app.slotEnd,
-        mode: app.mode,
-        status: app.status,
-        paymentExpiresAt: app.paymentExpiresAt,
-        payment: payment || null,
-        createdAt: app.createdAt,
-      };
-    });
-
     return NextResponse.json(
       {
         success: true,
-        date,
-        count: formattedAppointments.length,
-        appointments: formattedAppointments,
+        appointments: appointments.map(formatAppointment),
       },
       { status: 200 }
     );
@@ -147,7 +131,7 @@ export async function GET(req) {
     return NextResponse.json(
       {
         success: false,
-        message: "Something went wrong while fetching applicants",
+        message: "Something went wrong while fetching appointments",
       },
       { status: 500 }
     );

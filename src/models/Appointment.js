@@ -36,6 +36,7 @@ const appointmentSchema = new mongoose.Schema(
     mode: {
       type: String,
       enum: ["offline", "online"],
+      default: "offline",
       required: true,
     },
 
@@ -74,6 +75,11 @@ const appointmentSchema = new mongoose.Schema(
     cancelledAt: {
         type: Date,
         default: null,
+    },
+
+    autoCompleteAfterSlot: {
+      type: Boolean,
+      default: false,
     },
 
     feedbackGiven: {
