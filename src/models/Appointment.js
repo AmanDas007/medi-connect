@@ -86,5 +86,6 @@ const appointmentSchema = new mongoose.Schema(
 
 appointmentSchema.index({ doctor: 1, slotStart: 1 });
 appointmentSchema.index({ patient: 1, slotStart: -1 });
+appointmentSchema.index({ status: 1, paymentExpiresAt: 1 });
 
 export default mongoose.models.Appointment || mongoose.model("Appointment", appointmentSchema);

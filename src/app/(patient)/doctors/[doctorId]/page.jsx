@@ -40,10 +40,33 @@ function getDayAvailability(doctor, dayOfWeek) {
   return doctor?.availability?.find(day => day.dayOfWeek === dayOfWeek && day.isAvailable)
 }
 
+function getDateString(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function loadRazorpayScript() {
+  return new Promise(resolve => {
+    if (typeof window !== 'undefined' && window.Razorpay) {
+      resolve(true)
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.onload = () => resolve(true)
+    script.onerror = () => resolve(false)
+    document.body.appendChild(script)
+  })
+}
+
 export default function DoctorDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const { status } = useSession()
+  const { data: session, status } = useSession()
 
   const [mobileOpen, setMobileOpen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -55,7 +78,18 @@ export default function DoctorDetailPage() {
   const [error, setError] = useState('')
   const [showLoginCard, setShowLoginCard] = useState(false)
 
+  const [bookingLoading, setBookingLoading] = useState(false)
+  const [bookingError, setBookingError] = useState('')
+  const [bookingSuccess, setBookingSuccess] = useState('')
+
+  const [bookedSlotLabels, setBookedSlotLabels] = useState([])
+  const [bookedSlotsLoading, setBookedSlotsLoading] = useState(false)
+
   const nextDays = useMemo(() => getNextSevenDays(), [])
+
+  const selectedDay = nextDays[selectedIndex]
+  const selectedAvailability = getDayAvailability(doctor, selectedDay?.dayOfWeek)
+  const slots = selectedAvailability?.slots || []
 
   useEffect(() => {
     const fetchDoctor = async () => {
@@ -90,18 +124,198 @@ export default function DoctorDetailPage() {
     fetchDoctor()
   }, [params?.doctorId])
 
-  const handleBookAppointment = () => {
-    if (!selectedSlot) return
+  useEffect(() => {
+    const fetchBookedSlots = async () => {
+      if (!doctor?._id || !selectedDay?.date) return
+
+      setBookedSlotsLoading(true)
+
+      try {
+        const appointmentDate = getDateString(selectedDay.date)
+
+        const res = await fetch(`/api/doctors/${doctor._id}/booked-slots?date=${appointmentDate}`, {
+          method: 'GET',
+          cache: 'no-store',
+        })
+
+        const data = await res.json()
+
+        if (res.ok && data.success) {
+          const labels = data.bookedSlots?.map(slot => slot.label) || []
+          setBookedSlotLabels(labels)
+
+          if (selectedSlot && labels.includes(selectedSlot)) {
+            setSelectedSlot(null)
+          }
+        } else {
+          setBookedSlotLabels([])
+        }
+      } catch {
+        setBookedSlotLabels([])
+      } finally {
+        setBookedSlotsLoading(false)
+      }
+    }
+
+    fetchBookedSlots()
+  }, [doctor?._id, selectedIndex])
+
+  const releasePendingAppointment = async appointmentId => {
+    if (!appointmentId) return
+
+    try {
+      await fetch('/api/appointments/release-pending', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId }),
+      })
+    } catch {}
+  }
+
+  const handleBookAppointment = async () => {
+    if (!selectedSlot || bookingLoading) return
+
+    if (bookedSlotLabels.includes(selectedSlot)) {
+      setSelectedSlot(null)
+      setBookingError('This slot is already booked. Please choose another slot.')
+      return
+    }
+
+    setBookingError('')
+    setBookingSuccess('')
+    setShowLoginCard(false)
 
     if (status !== 'authenticated') {
       setShowLoginCard(true)
       return
     }
 
-    // Later connect this with actual booking page/API
-    router.push(
-      `/appointments/book?doctorId=${doctor._id}&mode=${mode}&slot=${encodeURIComponent(selectedSlot)}`
-    )
+    if (session?.user?.role !== 'patient') {
+      setBookingError('Only patients can book appointments.')
+      return
+    }
+
+    const loaded = await loadRazorpayScript()
+
+    if (!loaded) {
+      setBookingError('Razorpay failed to load. Please check your internet connection.')
+      return
+    }
+
+    const [startTime, endTime] = selectedSlot.split(' - ')
+    const appointmentDate = getDateString(selectedDay.date)
+
+    setBookingLoading(true)
+
+    try {
+      const createOrderRes = await fetch('/api/appointments/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          doctorId: doctor._id,
+          appointmentDate,
+          startTime,
+          endTime,
+          mode,
+        }),
+      })
+
+      const orderData = await createOrderRes.json()
+
+      if (!createOrderRes.ok) {
+        setBookingError(orderData.message || 'Failed to create payment order.')
+        setBookingLoading(false)
+        return
+      }
+
+      const options = {
+        key: orderData.key,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: 'MediConnect',
+        description: `Appointment with ${doctor.name}`,
+        order_id: orderData.orderId,
+
+        prefill: {
+          name: session?.user?.name || '',
+          email: session?.user?.email || '',
+        },
+
+        notes: {
+          appointmentId: orderData.appointmentId,
+          doctorId: doctor._id,
+          mode,
+          slot: selectedSlot,
+        },
+
+        theme: {
+          color: '#2563EB',
+        },
+
+        handler: async function (response) {
+          setBookingLoading(true)
+          setBookingError('')
+
+          try {
+            const verifyRes = await fetch('/api/payments/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                appointmentId: orderData.appointmentId,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            })
+
+            const verifyData = await verifyRes.json()
+
+            if (!verifyRes.ok) {
+              setBookingError(verifyData.message || 'Payment verification failed.')
+              return
+            }
+
+            setBookingSuccess('Payment successful! Appointment confirmed.')
+
+            setTimeout(() => {
+              router.push('/appointments')
+            }, 1200)
+          } catch {
+            setBookingError('Something went wrong while verifying payment.')
+          } finally {
+            setBookingLoading(false)
+          }
+        },
+
+        modal: {
+          ondismiss: async function () {
+            await releasePendingAppointment(orderData.appointmentId)
+            setBookingLoading(false)
+            setBookingError('Payment was cancelled. Please try booking again.')
+          },
+        },
+      }
+
+      const razorpay = new window.Razorpay(options)
+
+      razorpay.on('payment.failed', async function (response) {
+        console.log('Razorpay payment failed:', response.error)
+
+        await releasePendingAppointment(orderData.appointmentId)
+
+        setBookingLoading(false)
+        setBookingError(
+          response.error?.description ||
+          response.error?.reason ||
+          'Payment failed. Please try again.'
+        )
+      })
+
+      razorpay.open()
+    } catch {
+      setBookingLoading(false)
+      setBookingError('Something went wrong while starting booking.')
+    }
   }
 
   if (loading) {
@@ -145,10 +359,6 @@ export default function DoctorDetailPage() {
       </div>
     )
   }
-
-  const selectedDay = nextDays[selectedIndex]
-  const selectedAvailability = getDayAvailability(doctor, selectedDay.dayOfWeek)
-  const slots = selectedAvailability?.slots || []
 
   return (
     <div className="min-h-screen bg-surface-2">
@@ -299,6 +509,9 @@ export default function DoctorDetailPage() {
                           setSelectedIndex(index)
                           setSelectedSlot(null)
                           setShowLoginCard(false)
+                          setBookingError('')
+                          setBookingSuccess('')
+                          setBookedSlotLabels([])
                         }}
                         className={`min-w-[76px] rounded-2xl border px-3 py-3 text-center transition-all ${
                           active
@@ -325,21 +538,29 @@ export default function DoctorDetailPage() {
                     {slots.map((slot, index) => {
                       const label = `${slot.startTime} - ${slot.endTime}`
                       const active = selectedSlot === label
+                      const isBooked = bookedSlotLabels.includes(label)
 
                       return (
                         <button
                           key={index}
+                          disabled={isBooked || bookedSlotsLoading}
                           onClick={() => {
+                            if (isBooked) return
+
                             setSelectedSlot(label)
                             setShowLoginCard(false)
+                            setBookingError('')
+                            setBookingSuccess('')
                           }}
                           className={`px-3 py-2.5 rounded-xl border text-xs font-medium transition-all ${
-                            active
-                              ? 'bg-primary-600 text-white border-primary-600'
-                              : 'bg-white text-slate-700 border-slate-200 hover:border-primary-300 hover:bg-primary-50'
+                            isBooked
+                              ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-70'
+                              : active
+                                ? 'bg-primary-600 text-white border-primary-600'
+                                : 'bg-white text-slate-700 border-slate-200 hover:border-primary-300 hover:bg-primary-50'
                           }`}
                         >
-                          {label}
+                          {isBooked ? `${label} Booked` : label}
                         </button>
                       )
                     })}
@@ -380,12 +601,34 @@ export default function DoctorDetailPage() {
                 </div>
               )}
 
+              {bookingError && (
+                <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4">
+                  <p className="text-sm font-semibold text-red-700">
+                    {bookingError}
+                  </p>
+                </div>
+              )}
+
+              {bookingSuccess && (
+                <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                  <p className="text-sm font-semibold text-emerald-700">
+                    {bookingSuccess}
+                  </p>
+                </div>
+              )}
+
               <button
                 onClick={handleBookAppointment}
-                disabled={!selectedSlot}
+                disabled={!selectedSlot || bookingLoading || bookedSlotsLoading}
                 className="btn-primary w-full py-3 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {selectedSlot ? 'Proceed to Book' : 'Select a Slot'}
+                {bookingLoading
+                  ? 'Processing...'
+                  : bookedSlotsLoading
+                    ? 'Checking Slots...'
+                    : selectedSlot
+                      ? 'Proceed to Book'
+                      : 'Select a Slot'}
               </button>
 
               <p className="text-xs text-slate-400 text-center mt-3">

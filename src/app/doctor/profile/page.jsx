@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
-import DoctorSidebar from '@/components/doctor/DoctorSidebar.jsx/page'
+import DoctorSidebar from '@/components/doctor/DoctorSidebar'
 
 const SPECIALIZATIONS = [
     'General Physician', 'Cardiologist', 'Dermatologist', 'Neurologist',

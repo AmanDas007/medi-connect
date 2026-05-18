@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
-import DoctorSidebar from '@/components/doctor/DoctorSidebar.jsx/page'
+import DoctorSidebar from '@/components/doctor/DoctorSidebar'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -16,31 +16,72 @@ function getInitials(name) {
     .toUpperCase()
 }
 
-function PatientCard({ patient }) {
+function getTodayDateString() {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function formatTime(dateString) {
+  return new Date(dateString).toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function getStatusLabel(status) {
+  if (status === 'confirmed') return 'Confirmed'
+  if (status === 'pending-payment') return 'Pending Payment'
+  return status
+}
+
+function PatientCard({ appointment }) {
+  const patient = appointment.patient
+
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-5 hover:shadow-card-hover transition-all duration-200">
       <div className="flex items-start gap-4">
         <div className="w-14 h-14 rounded-2xl bg-primary-50 border border-primary-100 flex items-center justify-center overflow-hidden shrink-0">
-          {patient.profileUrl ? (
+          {patient?.profileUrl ? (
             <img src={patient.profileUrl} alt={patient.name} className="w-full h-full object-cover" />
           ) : (
             <span className="text-sm font-semibold text-primary-700">
-              {getInitials(patient.name)}
+              {getInitials(patient?.name || appointment.patientName || 'Patient')}
             </span>
           )}
         </div>
 
         <div className="min-w-0 flex-1">
           <h3 className="text-base font-semibold text-slate-900 truncate">
-            {patient.name}
+            {patient?.name || appointment.patientName || 'Patient'}
           </h3>
+
           <p className="text-sm text-slate-500 truncate mt-0.5">
-            {patient.email}
+            {patient?.email || 'Email not available'}
           </p>
 
-          <span className={`badge mt-3 ${patient.isBlocked ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
-            {patient.isBlocked ? 'Blocked' : 'Active'}
-          </span>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <span className="badge bg-blue-50 text-blue-700">
+              {formatTime(appointment.slotStart)} - {formatTime(appointment.slotEnd)}
+            </span>
+
+            <span className="badge bg-emerald-50 text-emerald-700 capitalize">
+              {appointment.mode}
+            </span>
+
+            <span
+              className={`badge ${
+                appointment.status === 'confirmed'
+                  ? 'bg-slate-100 text-slate-600'
+                  : 'bg-amber-50 text-amber-700'
+              }`}
+            >
+              {getStatusLabel(appointment.status)}
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -52,9 +93,11 @@ export default function DoctorDashboardPage() {
 
   const [mobileOpen, setMobileOpen] = useState(false)
   const [doctor, setDoctor] = useState(null)
-  const [patients, setPatients] = useState([])
+  const [todayAppointments, setTodayAppointments] = useState([])
+  const [statusFilter, setStatusFilter] = useState('confirmed')
+
   const [doctorLoading, setDoctorLoading] = useState(true)
-  const [patientsLoading, setPatientsLoading] = useState(true)
+  const [appointmentsLoading, setAppointmentsLoading] = useState(true)
   const [error, setError] = useState('')
 
   const isLoggedIn = status === 'authenticated'
@@ -92,16 +135,18 @@ export default function DoctorDashboardPage() {
   }, [status])
 
   useEffect(() => {
-    const fetchPatients = async () => {
+    const fetchTodayAppointments = async () => {
       if (status !== 'authenticated') {
-        setPatientsLoading(false)
+        setAppointmentsLoading(false)
         return
       }
 
-      setPatientsLoading(true)
+      setAppointmentsLoading(true)
 
       try {
-        const res = await fetch('/api/doctor/patients', {
+        const today = getTodayDateString()
+
+        const res = await fetch(`/api/doctor/applicants?date=${today}&status=${statusFilter}`, {
           method: 'GET',
           cache: 'no-store',
         })
@@ -109,19 +154,19 @@ export default function DoctorDashboardPage() {
         const data = await res.json()
 
         if (res.ok && data.success) {
-          setPatients(data.patients || [])
+          setTodayAppointments(data.appointments || [])
         } else {
-          setPatients([])
+          setTodayAppointments([])
         }
       } catch {
-        setPatients([])
+        setTodayAppointments([])
       } finally {
-        setPatientsLoading(false)
+        setAppointmentsLoading(false)
       }
     }
 
-    fetchPatients()
-  }, [status])
+    fetchTodayAppointments()
+  }, [status, statusFilter])
 
   const todayAvailability = useMemo(() => {
     if (!doctor?.availability) return null
@@ -202,28 +247,50 @@ export default function DoctorDashboardPage() {
 
           <section className="bg-gradient-to-br from-primary-600 to-primary-800 rounded-3xl p-6 md:p-8 text-white overflow-hidden relative">
             <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3" />
+
             <div className="relative max-w-2xl">
               <h2 className="font-display text-3xl md:text-4xl font-bold">
                 Manage your clinic smoothly
               </h2>
               <p className="text-primary-100 text-sm md:text-base mt-3">
-                Track your availability, patients, feedbacks, and consultation history from one place.
+                Track today’s booked patients, availability, feedbacks, and consultation history from one place.
               </p>
             </div>
           </section>
 
           <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 mt-6">
             <section className="bg-white rounded-3xl border border-slate-100 shadow-card p-6">
-              <div className="flex items-start justify-between gap-4 mb-5">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
                 <div>
-                  <h2 className="section-title">Registered Patients</h2>
+                  <h2 className="section-title">Today&apos;s Booked Patients</h2>
                   <p className="text-sm text-slate-500 mt-1">
-                    {patientsLoading ? 'Loading patients...' : `${patients.length} patient(s) found`}
+                    {appointmentsLoading
+                      ? 'Loading today appointments...'
+                      : `${todayAppointments.length} appointment(s) found today`}
                   </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                  <select
+                    value={statusFilter}
+                    onChange={e => setStatusFilter(e.target.value)}
+                    className="input-base text-sm py-2 sm:w-44"
+                  >
+                    <option value="confirmed">Confirmed</option>
+                    <option value="pending">Pending Payment</option>
+                    <option value="all">All</option>
+                  </select>
+
+                  <Link
+                    href="/doctor/applicants"
+                    className="inline-flex text-sm font-medium text-primary-600 hover:text-primary-700 sm:justify-center"
+                  >
+                    View by date →
+                  </Link>
                 </div>
               </div>
 
-              {patientsLoading ? (
+              {appointmentsLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[1, 2, 3, 4].map(item => (
                     <div key={item} className="rounded-2xl border border-slate-100 p-5 animate-pulse">
@@ -232,30 +299,31 @@ export default function DoctorDashboardPage() {
                         <div className="flex-1 space-y-3">
                           <div className="h-4 bg-slate-200 rounded w-2/3" />
                           <div className="h-3 bg-slate-200 rounded w-1/2" />
+                          <div className="h-6 bg-slate-100 rounded w-3/4" />
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
-              ) : patients.length > 0 ? (
+              ) : todayAppointments.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {patients.map(patient => (
-                    <PatientCard key={patient._id || patient.id} patient={patient} />
+                  {todayAppointments.map(appointment => (
+                    <PatientCard key={appointment._id} appointment={appointment} />
                   ))}
                 </div>
               ) : (
                 <div className="rounded-2xl bg-surface-2 border border-slate-100 p-10 text-center">
-                  <div className="text-4xl mb-3">👥</div>
-                  <h3 className="font-semibold text-slate-900">No patients found</h3>
+                  <div className="text-4xl mb-3">📅</div>
+                  <h3 className="font-semibold text-slate-900">No bookings today</h3>
                   <p className="text-sm text-slate-500 mt-1">
-                    Registered patients will appear here.
+                    Patients who book today&apos;s appointments will appear here based on the selected status.
                   </p>
                 </div>
               )}
             </section>
 
             <aside className="bg-white rounded-3xl border border-slate-100 shadow-card p-6 h-fit">
-              <h2 className="text-lg font-semibold text-slate-900">Today's Availability</h2>
+              <h2 className="text-lg font-semibold text-slate-900">Today&apos;s Availability</h2>
               <p className="text-sm text-slate-500 mt-1">
                 {DAYS[new Date().getDay()]}
               </p>

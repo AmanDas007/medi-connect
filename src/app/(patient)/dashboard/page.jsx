@@ -14,6 +14,13 @@ function getInitials(name) {
     .toUpperCase()
 }
 
+function formatTime(dateString) {
+  return new Date(dateString).toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 function DoctorCard({ doctor }) {
   return (
     <Link
@@ -85,6 +92,69 @@ function DoctorCard({ doctor }) {
   )
 }
 
+function ReminderCard({ appointment }) {
+  const doctor = appointment.doctor
+
+  return (
+    <div className="bg-white rounded-2xl border border-primary-100 shadow-card p-5">
+      <div className="flex items-start gap-4">
+        <div className="w-14 h-14 rounded-2xl bg-primary-50 border border-primary-100 flex items-center justify-center overflow-hidden shrink-0">
+          {doctor?.profileUrl ? (
+            <img src={doctor.profileUrl} alt={doctor.name} className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-sm font-semibold text-primary-700">
+              {getInitials(doctor?.name || 'Doctor')}
+            </span>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-primary-600 mb-1">
+                Today&apos;s Appointment
+              </p>
+              <h3 className="text-base font-semibold text-slate-900 truncate">
+                {doctor?.name || 'Doctor'}
+              </h3>
+              <p className="text-sm text-slate-500 truncate mt-0.5">
+                {doctor?.specialization || 'Specialist'}
+              </p>
+            </div>
+
+            <span className="badge bg-blue-50 text-blue-700 capitalize">
+              {appointment.mode}
+            </span>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-xl bg-primary-50 p-3">
+              <p className="text-xs text-primary-500">Slot</p>
+              <p className="text-sm font-semibold text-primary-700 mt-1">
+                {formatTime(appointment.slotStart)} - {formatTime(appointment.slotEnd)}
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-emerald-50 p-3">
+              <p className="text-xs text-emerald-600">Status</p>
+              <p className="text-sm font-semibold text-emerald-700 mt-1 capitalize">
+                {appointment.status}
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-slate-50 p-3">
+              <p className="text-xs text-slate-400">Fee Paid</p>
+              <p className="text-sm font-semibold text-slate-800 mt-1">
+                ₹{appointment.payment?.amount || doctor?.consultationFee || 0}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function PatientDashboardPage() {
   const { status } = useSession()
 
@@ -96,6 +166,9 @@ export default function PatientDashboardPage() {
 
   const [loggedInUser, setLoggedInUser] = useState(null)
   const [meLoading, setMeLoading] = useState(false)
+
+  const [todayAppointments, setTodayAppointments] = useState([])
+  const [todayAppointmentsLoading, setTodayAppointmentsLoading] = useState(false)
 
   const isLoggedIn = status === 'authenticated'
   const user = loggedInUser
@@ -159,6 +232,38 @@ export default function PatientDashboardPage() {
     }
 
     fetchMe()
+  }, [status])
+
+  useEffect(() => {
+    const fetchTodayAppointments = async () => {
+      if (status !== 'authenticated') {
+        setTodayAppointments([])
+        return
+      }
+
+      setTodayAppointmentsLoading(true)
+
+      try {
+        const res = await fetch('/api/patient/appointments/today', {
+          method: 'GET',
+          cache: 'no-store',
+        })
+
+        const data = await res.json()
+
+        if (res.ok && data.success) {
+          setTodayAppointments(data.appointments || [])
+        } else {
+          setTodayAppointments([])
+        }
+      } catch {
+        setTodayAppointments([])
+      } finally {
+        setTodayAppointmentsLoading(false)
+      }
+    }
+
+    fetchTodayAppointments()
   }, [status])
 
   const filteredDoctors = useMemo(() => {
@@ -263,6 +368,38 @@ export default function PatientDashboardPage() {
               </p>
             </div>
           </section>
+
+          {isLoggedIn && (todayAppointmentsLoading || todayAppointments.length > 0) && (
+            <section className="mt-6">
+              <div className="flex items-end justify-between gap-4 mb-4">
+                <div>
+                  <h2 className="section-title">Reminder</h2>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Your confirmed appointments for today
+                  </p>
+                </div>
+              </div>
+
+              {todayAppointmentsLoading ? (
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-5 animate-pulse">
+                  <div className="flex gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-slate-200" />
+                    <div className="flex-1 space-y-3">
+                      <div className="h-4 bg-slate-200 rounded w-2/3" />
+                      <div className="h-3 bg-slate-200 rounded w-1/2" />
+                      <div className="h-14 bg-slate-100 rounded-xl" />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+                  {todayAppointments.map(appointment => (
+                    <ReminderCard key={appointment._id} appointment={appointment} />
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
           <div className="mt-6 bg-white rounded-2xl border border-slate-100 shadow-card p-3">
             <div className="flex items-center gap-3">

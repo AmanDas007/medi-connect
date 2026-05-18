@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import DoctorSidebar from '@/components/doctor/DoctorSidebar.jsx/page'
+import DoctorSidebar from '@/components/doctor/DoctorSidebar'
 
 export default function DoctorHistoryPage() {
   const [mobileOpen, setMobileOpen] = useState(false)
