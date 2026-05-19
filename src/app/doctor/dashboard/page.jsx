@@ -32,10 +32,24 @@ function formatTime(dateString) {
   })
 }
 
+function getDisplayStatus(appointment, nowTick) {
+  const slotEndTime = new Date(appointment.slotEnd).getTime()
+
+  if (
+    appointment.status === 'confirmed' &&
+    slotEndTime < nowTick
+  ) {
+    return 'missed'
+  }
+
+  return appointment.status
+}
+
 function getStatusLabel(status) {
   if (status === 'confirmed') return 'Confirmed'
   if (status === 'pending-payment') return 'Pending Payment'
   if (status === 'completed') return 'Completed'
+  if (status === 'missed') return 'Missed'
   return status
 }
 
@@ -43,6 +57,7 @@ function getStatusBadgeClass(status) {
   if (status === 'confirmed') return 'bg-slate-100 text-slate-600'
   if (status === 'pending-payment') return 'bg-amber-50 text-amber-700'
   if (status === 'completed') return 'bg-emerald-50 text-emerald-700'
+  if (status === 'missed') return 'bg-orange-50 text-orange-700'
   return 'bg-slate-100 text-slate-600'
 }
 
@@ -63,6 +78,8 @@ function PatientCard({
     appointment.status === 'confirmed' &&
     slotStartTime <= nowTick &&
     slotEndTime >= nowTick
+
+  const displayStatus = getDisplayStatus(appointment, nowTick)
 
   const showRunningActions = appointment.canMarkCompleted || isSlotRunning
 
@@ -97,8 +114,8 @@ function PatientCard({
               {appointment.mode || 'offline'}
             </span>
 
-            <span className={`badge ${getStatusBadgeClass(appointment.status)}`}>
-              {getStatusLabel(appointment.status)}
+            <span className={`badge ${getStatusBadgeClass(displayStatus)}`}>
+              {getStatusLabel(displayStatus)}
             </span>
           </div>
 

@@ -58,6 +58,119 @@ function getTimeMinutes(time) {
   return hour * 60 + minute
 }
 
+function formatDate(dateString) {
+  return new Date(dateString).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function StarDisplay({ rating, size = 'text-sm' }) {
+  const value = Number(rating) || 0
+
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map(star => (
+        <span
+          key={star}
+          className={`${size} ${star <= value ? 'text-amber-400' : 'text-slate-300'}`}
+        >
+          ★
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function RatingFilterButton({ value, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-3 py-2 rounded-xl border text-xs font-medium transition-all flex items-center gap-2 ${
+        active
+          ? 'bg-primary-600 border-primary-600 text-white'
+          : 'bg-white border-slate-200 text-slate-600 hover:bg-primary-50 hover:border-primary-200'
+      }`}
+    >
+      {value === 'all' ? (
+        <span>All</span>
+      ) : (
+        <>
+          <StarDisplay rating={Number(value)} />
+          <span className={active ? 'text-white' : 'text-slate-500'}>
+            {value}
+          </span>
+        </>
+      )}
+    </button>
+  )
+}
+
+function FeedbackCard({ feedback }) {
+  const patient = feedback.patient
+
+  return (
+    <div className={`rounded-2xl border p-5 ${
+      feedback.isMine
+        ? 'bg-primary-50 border-primary-200'
+        : 'bg-white border-slate-100'
+    }`}>
+      <div className="flex items-start gap-4">
+        <div className="w-11 h-11 rounded-2xl bg-primary-100 border border-primary-100 flex items-center justify-center overflow-hidden shrink-0">
+          {patient?.profileUrl ? (
+            <img src={patient.profileUrl} alt={patient.name} className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-xs font-semibold text-primary-700">
+              {getInitials(patient?.name || 'User')}
+            </span>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-slate-900 truncate">
+                  {patient?.name || 'Patient'}
+                </h3>
+
+                {feedback.isMine && (
+                  <span className="px-2 py-0.5 rounded-full bg-primary-600 text-white text-[10px] font-medium">
+                    Your feedback
+                  </span>
+                )}
+              </div>
+
+              <p className="text-xs text-slate-400 mt-0.5">
+                {feedback.createdAt ? formatDate(feedback.createdAt) : ''}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <StarDisplay rating={feedback.rating} />
+              <span className="text-xs font-semibold text-slate-700">
+                {feedback.rating}/5
+              </span>
+            </div>
+          </div>
+
+          {feedback.comment ? (
+            <p className="text-sm text-slate-600 leading-relaxed mt-3">
+              {feedback.comment}
+            </p>
+          ) : (
+            <p className="text-sm text-slate-400 italic mt-3">
+              No written feedback added.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function loadRazorpayScript() {
   return new Promise(resolve => {
     if (typeof window !== 'undefined' && window.Razorpay) {
@@ -94,6 +207,21 @@ export default function DoctorDetailPage() {
   const [bookedSlotLabels, setBookedSlotLabels] = useState([])
   const [bookedSlotsLoading, setBookedSlotsLoading] = useState(false)
   const [nowTick, setNowTick] = useState(Date.now())
+
+  const [feedbacks, setFeedbacks] = useState([])
+  const [feedbackStats, setFeedbackStats] = useState({
+    averageRating: 0,
+    totalFeedbacks: 0,
+  })
+  const [feedbackRatingFilter, setFeedbackRatingFilter] = useState('all')
+  const [feedbacksLoading, setFeedbacksLoading] = useState(false)
+  const [feedbacksError, setFeedbacksError] = useState('')
+  const [canGiveFeedback, setCanGiveFeedback] = useState(false)
+  const [myFeedback, setMyFeedback] = useState(null)
+  const [newRating, setNewRating] = useState(0)
+  const [newComment, setNewComment] = useState('')
+  const [feedbackSubmitLoading, setFeedbackSubmitLoading] = useState(false)
+  const [feedbackMessage, setFeedbackMessage] = useState('')
 
   const nextDays = useMemo(() => getNextSevenDays(), [])
 
@@ -200,6 +328,87 @@ export default function DoctorDetailPage() {
       setSelectedSlot(null)
     }
   }, [nowTick, selectedSlot, sortedSlots])
+
+  const fetchFeedbacks = async () => {
+    if (!doctor?._id) return
+
+    setFeedbacksLoading(true)
+    setFeedbacksError('')
+
+    try {
+      const res = await fetch(`/api/doctors/${doctor._id}/feedbacks?rating=${feedbackRatingFilter}`, {
+        method: 'GET',
+        cache: 'no-store',
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setFeedbacksError(data.message || 'Failed to fetch feedbacks.')
+        setFeedbacks([])
+        return
+      }
+
+      setFeedbacks(data.feedbacks || [])
+      setFeedbackStats(data.stats || { averageRating: 0, totalFeedbacks: 0 })
+      setCanGiveFeedback(Boolean(data.canGiveFeedback))
+      setMyFeedback(data.myFeedback || null)
+    } catch {
+      setFeedbacksError('Something went wrong while fetching feedbacks.')
+      setFeedbacks([])
+    } finally {
+      setFeedbacksLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchFeedbacks()
+  }, [doctor?._id, feedbackRatingFilter, status])
+
+  const handleSubmitFeedback = async e => {
+    e.preventDefault()
+
+    if (!doctor?._id || feedbackSubmitLoading) return
+
+    if (!newRating || Number(newRating) < 1 || Number(newRating) > 5) {
+      setFeedbacksError('Please choose a rating before submitting your feedback.')
+      return
+    }
+
+    setFeedbackSubmitLoading(true)
+    setFeedbacksError('')
+    setFeedbackMessage('')
+
+    try {
+      const res = await fetch(`/api/doctors/${doctor._id}/feedbacks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rating: Number(newRating),
+          comment: newComment.trim(),
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setFeedbacksError(data.message || 'Failed to submit feedback.')
+        return
+      }
+
+      setFeedbackMessage(data.message || 'Thank you! Your feedback has been submitted.')
+      setNewRating(0)
+      setNewComment('')
+      setCanGiveFeedback(false)
+      setMyFeedback(data.feedback || null)
+
+      await fetchFeedbacks()
+    } catch {
+      setFeedbacksError('Something went wrong while submitting feedback.')
+    } finally {
+      setFeedbackSubmitLoading(false)
+    }
+  }
 
   const releasePendingAppointment = async appointmentId => {
     if (!appointmentId) return
@@ -458,10 +667,10 @@ export default function DoctorDetailPage() {
 
                         <div className="flex flex-wrap gap-2 mt-4">
                           <span className="badge bg-emerald-50 text-emerald-700">
-                            ★ {doctor.averageRating || 0} rating
+                            ★ {feedbackStats.averageRating || doctor.averageRating || 0} rating
                           </span>
                           <span className="badge bg-slate-100 text-slate-600">
-                            {doctor.totalFeedbacks || 0} reviews
+                            {feedbackStats.totalFeedbacks || doctor.totalFeedbacks || 0} reviews
                           </span>
                           <span className="badge bg-blue-50 text-blue-700">
                             {doctor.experienceYears || 0} yrs experience
@@ -510,6 +719,167 @@ export default function DoctorDetailPage() {
                     </p>
                   </div>
                 </div>
+              </section>
+
+              <section className="bg-white rounded-3xl border border-slate-100 shadow-card p-6 md:p-8">
+                <div className="flex flex-col gap-4 mb-5">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <div>
+                      <h2 className="section-title">Patient Feedbacks</h2>
+                      <p className="text-sm text-slate-500 mt-1">
+                        {feedbacksLoading
+                          ? 'Loading patient experiences...'
+                          : `${feedbacks.length} feedback(s) shown`}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 w-fit">
+                      <div className="flex items-center gap-2">
+                        <StarDisplay rating={Math.round(feedbackStats.averageRating || doctor.averageRating || 0)} />
+                        <span className="text-sm font-bold text-slate-900">
+                          {feedbackStats.averageRating || doctor.averageRating || 0}/5
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Based on {feedbackStats.totalFeedbacks || doctor.totalFeedbacks || 0} review(s)
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {['all', '5', '4', '3', '2', '1'].map(item => (
+                      <RatingFilterButton
+                        key={item}
+                        value={item}
+                        active={feedbackRatingFilter === item}
+                        onClick={() => setFeedbackRatingFilter(item)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {feedbackMessage && (
+                  <div className="mb-5 rounded-2xl bg-emerald-50 border border-emerald-200 p-4">
+                    <p className="text-sm font-semibold text-emerald-700">
+                      {feedbackMessage}
+                    </p>
+                  </div>
+                )}
+
+                {feedbacksError && (
+                  <div className="mb-5 rounded-2xl bg-red-50 border border-red-200 p-4">
+                    <p className="text-sm font-semibold text-red-700">
+                      {feedbacksError}
+                    </p>
+                  </div>
+                )}
+
+                {canGiveFeedback && (
+                  <form
+                    onSubmit={handleSubmitFeedback}
+                    className="mb-6 rounded-3xl bg-gradient-to-br from-primary-50 to-white border border-primary-100 p-5"
+                  >
+                    <div>
+                      <h3 className="text-base font-semibold text-slate-900">
+                        Share your consultation experience
+                      </h3>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Your feedback helps other patients understand the doctor’s care, communication, and overall experience.
+                      </p>
+                    </div>
+
+                    <div className="mt-5">
+                      <label className="label">How would you rate this doctor?</label>
+
+                      <div className="flex items-center gap-2 mt-2">
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setNewRating(star)}
+                            className={`w-11 h-11 rounded-2xl border flex items-center justify-center text-2xl transition-all ${
+                              star <= newRating
+                                ? 'bg-amber-50 border-amber-200 text-amber-400 scale-105'
+                                : 'bg-white border-slate-200 text-slate-300 hover:bg-slate-50'
+                            }`}
+                          >
+                            ★
+                          </button>
+                        ))}
+                      </div>
+
+                      <p className="text-xs text-slate-500 mt-2">
+                        {newRating
+                          ? `You selected ${newRating} out of 5.`
+                          : 'Tap a star to choose your rating.'}
+                      </p>
+                    </div>
+
+                    <div className="mt-5">
+                      <label className="label">Write your feedback</label>
+                      <textarea
+                        value={newComment}
+                        onChange={e => setNewComment(e.target.value)}
+                        rows={4}
+                        placeholder="Example: The doctor explained the problem clearly, listened patiently, and the clinic experience was smooth."
+                        className="input-base resize-none"
+                      />
+                      <p className="text-xs text-slate-400 mt-2">
+                        Keep it honest and helpful for future patients.
+                      </p>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={feedbackSubmitLoading}
+                      className="btn-primary w-full mt-5 py-3 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {feedbackSubmitLoading ? 'Submitting Feedback...' : 'Submit Feedback'}
+                    </button>
+                  </form>
+                )}
+
+                {!canGiveFeedback && !myFeedback && status === 'authenticated' && (
+                  <div className="mb-6 rounded-2xl bg-slate-50 border border-slate-100 p-4">
+                    <p className="text-sm font-medium text-slate-700">
+                      Feedback unlocks after a completed appointment.
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      After your appointment with this doctor is completed, you can share one feedback.
+                    </p>
+                  </div>
+                )}
+
+                {feedbacksLoading ? (
+                  <div className="space-y-4">
+                    {[1, 2].map(item => (
+                      <div key={item} className="rounded-2xl border border-slate-100 p-5 animate-pulse">
+                        <div className="flex gap-4">
+                          <div className="w-11 h-11 rounded-2xl bg-slate-200" />
+                          <div className="flex-1 space-y-3">
+                            <div className="h-4 bg-slate-200 rounded w-1/3" />
+                            <div className="h-3 bg-slate-200 rounded w-1/4" />
+                            <div className="h-12 bg-slate-100 rounded-xl" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : feedbacks.length > 0 ? (
+                  <div className="space-y-4">
+                    {feedbacks.map(feedback => (
+                      <FeedbackCard key={feedback._id} feedback={feedback} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl bg-surface-2 border border-slate-100 p-10 text-center">
+                    <div className="text-4xl mb-3">⭐</div>
+                    <h3 className="font-semibold text-slate-900">No feedbacks yet</h3>
+                    <p className="text-sm text-slate-500 mt-1">
+                      Patient feedbacks will appear here after completed appointments.
+                    </p>
+                  </div>
+                )}
               </section>
             </div>
 

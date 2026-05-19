@@ -33,12 +33,13 @@ const doctorFeedbackSchema = new mongoose.Schema(
     comment: {
       type: String,
       trim: true,
-      maxlength: 1000,
+      default: "",
     },
   },
   { timestamps: true }
 );
 
 doctorFeedbackSchema.index({ doctor: 1, createdAt: -1 });
+doctorFeedbackSchema.index({ patient: 1, doctor: 1 }, { unique: true });
 
 export default mongoose.models.DoctorFeedback || mongoose.model("DoctorFeedback", doctorFeedbackSchema);
