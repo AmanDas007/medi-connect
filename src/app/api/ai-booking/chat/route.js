@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import Groq from "groq-sdk";
-
+import groq from "@/lib/groq";
 import connectDB from "@/db/connect";
 import Doctor from "@/models/Doctor";
 import Appointment from "@/models/Appointment";
@@ -28,10 +27,6 @@ const SPECIALIZATIONS = [
   "Pathologist",
   "Anesthesiologist",
 ];
-
-const groq = process.env.GROQ_API_KEY
-  ? new Groq({ apiKey: process.env.GROQ_API_KEY })
-  : null;
 
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -206,114 +201,115 @@ Rules:
 }
 
 function getRuleBasedSpecialization(symptoms) {
-    const text = symptoms.toLowerCase()
+  const text = symptoms.toLowerCase();
 
-    // common first-contact symptoms => General Physician
-    if (
-      text.includes('cough') ||
-      text.includes('cold') ||
-      text.includes('fever') ||
-      text.includes('throat') ||
-      text.includes('weakness') ||
-      text.includes('body pain') ||
-      text.includes('headache') ||
-      text.includes('vomit') ||
-      text.includes('loose motion') ||
-      text.includes('diarrhea') ||
-      text.includes('stomach pain')
-    ) {
-      return {
-        specialization: 'General Physician',
-        confidence: 0.9,
-        reason: 'Common or first-contact symptoms are best evaluated first by a general physician.',
-        emergencyWarning:
-          text.includes('breathless') || text.includes('blood')
-            ? 'If cough is associated with breathing difficulty, blood in cough, severe chest pain, or very high fever, seek urgent medical help.'
-            : '',
-      }
-    }
-  
-    return null
+  // common first-contact symptoms => General Physician
+  if (
+    text.includes("cough") ||
+    text.includes("cold") ||
+    text.includes("fever") ||
+    text.includes("throat") ||
+    text.includes("weakness") ||
+    text.includes("body pain") ||
+    text.includes("headache") ||
+    text.includes("vomit") ||
+    text.includes("loose motion") ||
+    text.includes("diarrhea") ||
+    text.includes("stomach pain")
+  ) {
+    return {
+      specialization: "General Physician",
+      confidence: 0.9,
+      reason:
+        "Common or first-contact symptoms are best evaluated first by a general physician.",
+      emergencyWarning:
+        text.includes("breathless") || text.includes("blood")
+          ? "If cough is associated with breathing difficulty, blood in cough, severe chest pain, or very high fever, seek urgent medical help."
+          : "",
+    };
+  }
+
+  return null;
 }
 
 async function classifySymptoms(symptoms) {
-    const ruleBased = getRuleBasedSpecialization(symptoms)
-  
-    if (ruleBased) {
-      return ruleBased
-    }
-  
-    if (!groq) {
-      throw new Error("Groq API key missing")
-    }
-  
-    try {
-      const completion = await groq.chat.completions.create({
-        model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
-        temperature: 0,
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content: `
-  You classify patient symptoms into ONE specialization from this fixed list only:
-  ${SPECIALIZATIONS.join(", ")}
-  
-  Return only JSON:
-  {
-    "specialization": "one specialization from list",
-    "confidence": number between 0 and 1,
-    "reason": "short reason",
-    "emergencyWarning": "short warning if symptoms may be urgent, else empty string"
+  const ruleBased = getRuleBasedSpecialization(symptoms);
+
+  if (ruleBased) {
+    return ruleBased;
   }
-  
-  Very important routing rules:
-  - Common first-contact symptoms like cough, cold, fever, weakness, body pain, mild headache, throat pain, vomiting, diarrhea, general stomach pain => General Physician.
-  - Do NOT send simple cough/cold/fever to Pulmonologist unless symptoms include severe breathing difficulty, chronic lung disease, asthma/COPD, coughing blood, or long-term persistent cough.
-  - Heart beating, palpitations, chest pain, high BP concern => Cardiologist.
-  - Skin rash, acne, itching, skin allergy => Dermatologist.
-  - Bone pain, joint pain, fracture, knee/back pain => Orthopedic Surgeon.
-  - Anxiety, stress, depression, panic attacks => Psychiatrist.
-  - Cancer concern, tumor, chemotherapy-related query => Oncologist.
-  - If symptoms are unclear or mixed, choose General Physician.
-  
-  Safety:
-  - Do not diagnose.
-  - Do not say the user has a disease.
-  - If symptoms may be emergency, include emergencyWarning.
-            `,
-          },
-          {
-            role: "user",
-            content: symptoms,
-          },
-        ],
-      })
-  
-      const raw = completion.choices?.[0]?.message?.content || "{}"
-      const parsed = safeJsonParse(raw, {})
-  
-      const specialization = SPECIALIZATIONS.includes(parsed.specialization)
-        ? parsed.specialization
-        : "General Physician"
-  
-      return {
-        specialization,
-        confidence:
-          typeof parsed.confidence === "number" ? parsed.confidence : 0.5,
-        reason: parsed.reason || "",
-        emergencyWarning: parsed.emergencyWarning || "",
-      }
-    } catch (error) {
-      console.error("Symptom classification error:", error)
-  
-      return {
-        specialization: "General Physician",
-        confidence: 0.4,
-        reason: "Could not confidently classify symptoms.",
-        emergencyWarning: "",
-      }
-    }
+
+  if (!groq) {
+    throw new Error("Groq API key missing");
+  }
+
+  try {
+    const completion = await groq.chat.completions.create({
+      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+      temperature: 0,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: `
+You classify patient symptoms into ONE specialization from this fixed list only:
+${SPECIALIZATIONS.join(", ")}
+
+Return only JSON:
+{
+  "specialization": "one specialization from list",
+  "confidence": number between 0 and 1,
+  "reason": "short reason",
+  "emergencyWarning": "short warning if symptoms may be urgent, else empty string"
+}
+
+Very important routing rules:
+- Common first-contact symptoms like cough, cold, fever, weakness, body pain, mild headache, throat pain, vomiting, diarrhea, general stomach pain => General Physician.
+- Do NOT send simple cough/cold/fever to Pulmonologist unless symptoms include severe breathing difficulty, chronic lung disease, asthma/COPD, coughing blood, or long-term persistent cough.
+- Heart beating, palpitations, chest pain, high BP concern => Cardiologist.
+- Skin rash, acne, itching, skin allergy => Dermatologist.
+- Bone pain, joint pain, fracture, knee/back pain => Orthopedic Surgeon.
+- Anxiety, stress, depression, panic attacks => Psychiatrist.
+- Cancer concern, tumor, chemotherapy-related query => Oncologist.
+- If symptoms are unclear or mixed, choose General Physician.
+
+Safety:
+- Do not diagnose.
+- Do not say the user has a disease.
+- If symptoms may be emergency, include emergencyWarning.
+          `,
+        },
+        {
+          role: "user",
+          content: symptoms,
+        },
+      ],
+    });
+
+    const raw = completion.choices?.[0]?.message?.content || "{}";
+    const parsed = safeJsonParse(raw, {});
+
+    const specialization = SPECIALIZATIONS.includes(parsed.specialization)
+      ? parsed.specialization
+      : "General Physician";
+
+    return {
+      specialization,
+      confidence:
+        typeof parsed.confidence === "number" ? parsed.confidence : 0.5,
+      reason: parsed.reason || "",
+      emergencyWarning: parsed.emergencyWarning || "",
+    };
+  } catch (error) {
+    console.error("Symptom classification error:", error);
+
+    return {
+      specialization: "General Physician",
+      confidence: 0.4,
+      reason: "Could not confidently classify symptoms.",
+      emergencyWarning: "",
+    };
+  }
 }
 
 function normalizeSpecializationDisplay(value) {

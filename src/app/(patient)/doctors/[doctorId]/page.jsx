@@ -367,18 +367,18 @@ export default function DoctorDetailPage() {
 
   const handleSubmitFeedback = async e => {
     e.preventDefault()
-
+  
     if (!doctor?._id || feedbackSubmitLoading) return
-
+  
     if (!newRating || Number(newRating) < 1 || Number(newRating) > 5) {
       setFeedbacksError('Please choose a rating before submitting your feedback.')
       return
     }
-
+  
     setFeedbackSubmitLoading(true)
     setFeedbacksError('')
     setFeedbackMessage('')
-
+  
     try {
       const res = await fetch(`/api/doctors/${doctor._id}/feedbacks`, {
         method: 'POST',
@@ -388,20 +388,27 @@ export default function DoctorDetailPage() {
           comment: newComment.trim(),
         }),
       })
-
+  
       const data = await res.json()
-
+  
       if (!res.ok) {
-        setFeedbacksError(data.message || 'Failed to submit feedback.')
+        setFeedbacksError(
+          data.message ||
+            'Feedback could not be submitted. Please rewrite it respectfully and try again.'
+        )
         return
       }
-
+  
       setFeedbackMessage(data.message || 'Thank you! Your feedback has been submitted.')
       setNewRating(0)
       setNewComment('')
       setCanGiveFeedback(false)
       setMyFeedback(data.feedback || null)
-
+  
+      if (data.stats) {
+        setFeedbackStats(data.stats)
+      }
+  
       await fetchFeedbacks()
     } catch {
       setFeedbacksError('Something went wrong while submitting feedback.')
@@ -825,7 +832,7 @@ export default function DoctorDetailPage() {
                         className="input-base resize-none"
                       />
                       <p className="text-xs text-slate-400 mt-2">
-                        Keep it honest and helpful for future patients.
+                        Keep it honest, respectful, and helpful. Abusive, threatening, spam, or offensive feedback will be blocked automatically.
                       </p>
                     </div>
 
@@ -834,7 +841,7 @@ export default function DoctorDetailPage() {
                       disabled={feedbackSubmitLoading}
                       className="cursor-pointer btn-primary w-full mt-5 py-3 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      {feedbackSubmitLoading ? 'Submitting Feedback...' : 'Submit Feedback'}
+                      {feedbackSubmitLoading ? 'Checking & Submitting...' : 'Submit Feedback'}
                     </button>
                   </form>
                 )}
