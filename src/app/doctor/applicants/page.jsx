@@ -171,7 +171,7 @@ export default function DoctorApplicantsPage() {
           <div className="px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-3">
             <button
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center"
+              className="lg:hidden w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center cursor-pointer"
             >
               <span className="text-xl leading-none">≡</span>
             </button>
@@ -210,7 +210,7 @@ export default function DoctorApplicantsPage() {
                   min={minDate}
                   value={date}
                   onChange={e => setDate(e.target.value)}
-                  className="input-base"
+                  className="input-base cursor-pointer"
                 />
               </div>
 
@@ -219,7 +219,7 @@ export default function DoctorApplicantsPage() {
                 <select
                   value={statusFilter}
                   onChange={e => setStatusFilter(e.target.value)}
-                  className="input-base"
+                  className="input-base cursor-pointer"
                 >
                   <option value="confirmed">Confirmed</option>
                   <option value="pending">Pending Payment</option>
@@ -230,7 +230,7 @@ export default function DoctorApplicantsPage() {
               <button
                 type="button"
                 onClick={fetchApplicants}
-                className="btn-primary w-full py-3"
+                className="btn-primary w-full py-3 cursor-pointer"
               >
                 Refresh
               </button>

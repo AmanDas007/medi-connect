@@ -154,7 +154,7 @@ export default function AppointmentDetailPage() {
           <p className="text-sm text-slate-500 mt-2">
             {error || 'The appointment you are looking for does not exist.'}
           </p>
-          <Link href="/appointments" className="btn-primary mt-6">
+          <Link href="/appointments" className="btn-primary mt-6 cursor-pointer">
             Back to Appointments
           </Link>
         </div>
@@ -173,7 +173,7 @@ export default function AppointmentDetailPage() {
       {showCancelConfirm && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
           <div
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm cursor-pointer"
             onClick={() => {
               if (!cancelLoading) setShowCancelConfirm(false)
             }}
@@ -238,7 +238,7 @@ export default function AppointmentDetailPage() {
                 type="button"
                 disabled={cancelLoading}
                 onClick={() => setShowCancelConfirm(false)}
-                className="px-5 py-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-60"
+                className="cursor-pointer px-5 py-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Keep Booking
               </button>
@@ -247,7 +247,7 @@ export default function AppointmentDetailPage() {
                 type="button"
                 disabled={cancelLoading}
                 onClick={handleCancelAppointment}
-                className="px-5 py-3 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="cursor-pointer px-5 py-3 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {cancelLoading ? 'Cancelling...' : 'Yes, Cancel'}
               </button>
@@ -262,12 +262,12 @@ export default function AppointmentDetailPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setMobileOpen(true)}
-                className="lg:hidden w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center"
+                className="cursor-pointer lg:hidden w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center"
               >
                 <span className="text-xl leading-none">≡</span>
               </button>
 
-              <Link href="/appointments" className="text-sm font-medium text-slate-500 hover:text-primary-600">
+              <Link href="/appointments" className="cursor-pointer text-sm font-medium text-slate-500 hover:text-primary-600">
                 ← Back to appointments
               </Link>
             </div>
@@ -483,7 +483,7 @@ export default function AppointmentDetailPage() {
                 <button
                   onClick={() => setShowCancelConfirm(true)}
                   disabled={cancelLoading}
-                  className="w-full mt-6 px-5 py-3 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="cursor-pointer w-full mt-6 px-5 py-3 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {cancelLoading ? 'Cancelling...' : 'Cancel Appointment'}
                 </button>

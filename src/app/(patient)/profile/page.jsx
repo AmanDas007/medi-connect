@@ -174,7 +174,7 @@ export default function PatientProfilePage() {
               <h1 className="text-lg font-semibold text-slate-900">My Profile</h1>
             </div>
 
-            <Link href="/dashboard" className="text-sm font-medium text-primary-600">
+            <Link href="/dashboard" className="cursor-pointer text-sm font-medium text-primary-600">
               Dashboard
             </Link>
           </div>
@@ -208,7 +208,7 @@ export default function PatientProfilePage() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="group relative w-28 h-28 rounded-full overflow-hidden bg-primary-50 border-2 border-primary-100 flex items-center justify-center"
+                  className="cursor-pointer group relative w-28 h-28 rounded-full overflow-hidden bg-primary-50 border-2 border-primary-100 flex items-center justify-center"
                 >
                   {preview ? (
                     <img src={preview} alt="Profile" className="w-full h-full object-cover" />
@@ -231,7 +231,7 @@ export default function PatientProfilePage() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="btn-secondary px-3 py-2 text-xs"
+                      className="cursor-pointer btn-secondary px-3 py-2 text-xs"
                     >
                       Upload New
                     </button>
@@ -239,7 +239,7 @@ export default function PatientProfilePage() {
                     <button
                       type="button"
                       onClick={handleDeleteImage}
-                      className="px-3 py-2 rounded-xl text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
+                      className="cursor-pointer px-3 py-2 rounded-xl text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
                     >
                       Delete Image
                     </button>
@@ -285,7 +285,7 @@ export default function PatientProfilePage() {
               <button
                 type="submit"
                 disabled={loading || fetching}
-                className="btn-primary w-full py-3"
+                className="cursor-pointer btn-primary w-full py-3"
               >
                 {loading ? 'Saving...' : 'Save Changes'}
               </button>

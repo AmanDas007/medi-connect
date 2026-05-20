@@ -70,7 +70,7 @@ function StarDisplay({ rating, size = 'text-sm' }) {
   const value = Number(rating) || 0
 
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="cursor-pointer flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map(star => (
         <span
           key={star}
@@ -88,7 +88,7 @@ function RatingFilterButton({ value, active, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`px-3 py-2 rounded-xl border text-xs font-medium transition-all flex items-center gap-2 ${
+      className={`cursor-pointer px-3 py-2 rounded-xl border text-xs font-medium transition-all flex items-center gap-2 ${
         active
           ? 'bg-primary-600 border-primary-600 text-white'
           : 'bg-white border-slate-200 text-slate-600 hover:bg-primary-50 hover:border-primary-200'
@@ -610,7 +610,7 @@ export default function DoctorDetailPage() {
           <p className="text-sm text-slate-500 mt-2">
             {error || 'The doctor profile you are looking for does not exist.'}
           </p>
-          <Link href="/dashboard" className="btn-primary mt-6">
+          <Link href="/dashboard" className="cursor-pointer btn-primary mt-6">
             Back to Dashboard
           </Link>
         </div>
@@ -633,7 +633,7 @@ export default function DoctorDetailPage() {
                 <span className="text-xl leading-none">≡</span>
               </button>
 
-              <Link href="/dashboard" className="text-sm font-medium text-slate-500 hover:text-primary-600">
+              <Link href="/dashboard" className="cursor-pointer text-sm font-medium text-slate-500 hover:text-primary-600">
                 ← Back to doctors
               </Link>
             </div>
@@ -797,7 +797,7 @@ export default function DoctorDetailPage() {
                             key={star}
                             type="button"
                             onClick={() => setNewRating(star)}
-                            className={`w-11 h-11 rounded-2xl border flex items-center justify-center text-2xl transition-all ${
+                            className={`cursor-pointer w-11 h-11 rounded-2xl border flex items-center justify-center text-2xl transition-all ${
                               star <= newRating
                                 ? 'bg-amber-50 border-amber-200 text-amber-400 scale-105'
                                 : 'bg-white border-slate-200 text-slate-300 hover:bg-slate-50'
@@ -832,7 +832,7 @@ export default function DoctorDetailPage() {
                     <button
                       type="submit"
                       disabled={feedbackSubmitLoading}
-                      className="btn-primary w-full mt-5 py-3 disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="cursor-pointer btn-primary w-full mt-5 py-3 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       {feedbackSubmitLoading ? 'Submitting Feedback...' : 'Submit Feedback'}
                     </button>
@@ -915,7 +915,7 @@ export default function DoctorDetailPage() {
                           setBookingSuccess('')
                           setBookedSlotLabels([])
                         }}
-                        className={`min-w-[76px] rounded-2xl border px-3 py-3 text-center transition-all ${
+                        className={`cursor-pointer min-w-[76px] rounded-2xl border px-3 py-3 text-center transition-all ${
                           active
                             ? 'border-primary-300 bg-primary-50 text-primary-700'
                             : 'border-slate-100 bg-white text-slate-600 hover:bg-slate-50'
@@ -955,7 +955,7 @@ export default function DoctorDetailPage() {
                             setBookingError('')
                             setBookingSuccess('')
                           }}
-                          className={`px-3 py-2.5 rounded-xl border text-xs font-medium transition-all ${
+                          className={`cursor-pointer px-3 py-2.5 rounded-xl border text-xs font-medium transition-all ${
                             isBooked || isPast
                               ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-70'
                               : active
@@ -990,13 +990,13 @@ export default function DoctorDetailPage() {
                   <div className="flex gap-2 mt-3">
                     <Link
                       href="/login"
-                      className="flex-1 text-center px-3 py-2 rounded-xl bg-primary-600 text-white text-xs font-medium hover:bg-primary-700 transition-colors"
+                      className="cursor-pointer flex-1 text-center px-3 py-2 rounded-xl bg-primary-600 text-white text-xs font-medium hover:bg-primary-700 transition-colors"
                     >
                       Login
                     </Link>
                     <Link
                       href="/register"
-                      className="flex-1 text-center px-3 py-2 rounded-xl bg-white text-slate-700 border border-slate-200 text-xs font-medium hover:bg-slate-50 transition-colors"
+                      className="cursor-pointer flex-1 text-center px-3 py-2 rounded-xl bg-white text-slate-700 border border-slate-200 text-xs font-medium hover:bg-slate-50 transition-colors"
                     >
                       Register
                     </Link>
@@ -1023,7 +1023,7 @@ export default function DoctorDetailPage() {
               <button
                 onClick={handleBookAppointment}
                 disabled={!selectedSlot || bookingLoading || bookedSlotsLoading}
-                className="btn-primary w-full py-3 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="cursor-pointer btn-primary w-full py-3 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {bookingLoading
                   ? 'Processing...'

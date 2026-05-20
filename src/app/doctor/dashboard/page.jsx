@@ -140,7 +140,7 @@ function PatientCard({
                     type="button"
                     onClick={() => onComplete(appointment._id)}
                     disabled={completingId === appointment._id}
-                    className="w-full px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="cursor-pointer w-full px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {completingId === appointment._id ? 'Completing...' : 'Mark as Done'}
                   </button>
@@ -149,7 +149,7 @@ function PatientCard({
                     type="button"
                     onClick={() => onAutoComplete(appointment._id)}
                     disabled={autoCompletingId === appointment._id}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white text-emerald-700 border border-emerald-200 text-xs font-medium hover:bg-emerald-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="cursor-pointer w-full px-4 py-2.5 rounded-xl bg-white text-emerald-700 border border-emerald-200 text-xs font-medium hover:bg-emerald-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {autoCompletingId === appointment._id ? 'Enabling...' : 'Auto Mark Done'}
                   </button>
@@ -161,7 +161,7 @@ function PatientCard({
                   type="button"
                   onClick={() => onComplete(appointment._id)}
                   disabled={completingId === appointment._id}
-                  className="w-full mt-3 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="cursor-pointer w-full mt-3 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {completingId === appointment._id ? 'Completing...' : 'Mark Done Now'}
                 </button>
@@ -363,7 +363,7 @@ export default function DoctorDashboardPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setMobileOpen(true)}
-                className="lg:hidden w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center"
+                className="cursor-pointer lg:hidden w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center"
               >
                 <span className="text-xl leading-none">≡</span>
               </button>
@@ -379,7 +379,7 @@ export default function DoctorDashboardPage() {
             {isLoggedIn ? (
               <Link
                 href="/doctor/profile"
-                className="w-10 h-10 rounded-full bg-primary-50 border border-primary-100 flex items-center justify-center overflow-hidden hover:ring-[3px] hover:ring-primary-500/10 transition-all"
+                className="cursor-pointer w-10 h-10 rounded-full bg-primary-50 border border-primary-100 flex items-center justify-center overflow-hidden hover:ring-[3px] hover:ring-primary-500/10 transition-all"
               >
                 {doctorLoading || !doctor ? (
                   <div className="w-full h-full bg-slate-100 animate-pulse" />
@@ -393,10 +393,10 @@ export default function DoctorDashboardPage() {
               </Link>
             ) : (
               <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
-                <Link href="/login" className="px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 hover:text-primary-600 transition-colors">
+                <Link href="/login" className="cursor-pointer px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 hover:text-primary-600 transition-colors">
                   Login
                 </Link>
-                <Link href="/register/doctor" className="px-3 py-1.5 text-xs sm:text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
+                <Link href="/register/doctor" className="cursor-pointer px-3 py-1.5 text-xs sm:text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
                   Register
                 </Link>
               </div>
@@ -452,7 +452,7 @@ export default function DoctorDashboardPage() {
                   <select
                     value={statusFilter}
                     onChange={e => setStatusFilter(e.target.value)}
-                    className="input-base text-sm py-2 sm:w-44"
+                    className="cursor-pointer input-base text-sm py-2 sm:w-44"
                   >
                     <option value="confirmed">Confirmed</option>
                     <option value="pending">Pending Payment</option>
@@ -462,7 +462,7 @@ export default function DoctorDashboardPage() {
 
                   <Link
                     href="/doctor/applicants"
-                    className="inline-flex text-sm font-medium text-primary-600 hover:text-primary-700 sm:justify-center"
+                    className="cursor-pointer inline-flex text-sm font-medium text-primary-600 hover:text-primary-700 sm:justify-center"
                   >
                     View by date →
                   </Link>

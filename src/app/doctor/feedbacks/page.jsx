@@ -42,7 +42,7 @@ function RatingFilterButton({ value, active, count, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`px-3 py-2 rounded-xl border text-xs font-medium transition-all flex items-center gap-2 ${
+      className={`cursor-pointer px-3 py-2 rounded-xl border text-xs font-medium transition-all flex items-center gap-2 ${
         active
           ? 'bg-primary-600 border-primary-600 text-white shadow-card'
           : 'bg-white border-slate-200 text-slate-600 hover:bg-primary-50 hover:border-primary-200'
@@ -202,7 +202,7 @@ export default function DoctorFeedbacksPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setMobileOpen(true)}
-                className="lg:hidden w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center"
+                className="cursor-pointer lg:hidden w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center"
               >
                 <span className="text-xl leading-none">≡</span>
               </button>
@@ -214,7 +214,7 @@ export default function DoctorFeedbacksPage() {
             <button
               type="button"
               onClick={fetchFeedbacks}
-              className="hidden sm:inline-flex px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              className="cursor-pointer hidden sm:inline-flex px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
             >
               Refresh
             </button>
@@ -304,7 +304,7 @@ export default function DoctorFeedbacksPage() {
             <button
               type="button"
               onClick={fetchFeedbacks}
-              className="sm:hidden w-full mt-4 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              className="cursor-pointer sm:hidden w-full mt-4 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
             >
               Refresh
             </button>

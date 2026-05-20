@@ -53,7 +53,7 @@ function AppointmentCard({ appointment }) {
   return (
     <Link
       href={`/appointments/${appointment._id}`}
-      className="block bg-white rounded-2xl border border-slate-100 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200 p-5"
+      className="cursor-pointer block bg-white rounded-2xl border border-slate-100 shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200 p-5"
     >
       <div className="flex items-start gap-4">
         <div className="w-16 h-16 rounded-2xl bg-primary-50 border border-primary-100 flex items-center justify-center shrink-0 overflow-hidden">
@@ -196,7 +196,7 @@ export default function PatientAppointmentsPage() {
           <div className="px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-3">
             <button
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center"
+              className="cursor-pointer lg:hidden w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center"
             >
               <span className="text-xl leading-none">≡</span>
             </button>
@@ -227,7 +227,7 @@ export default function PatientAppointmentsPage() {
               <button
                 type="button"
                 onClick={() => setActiveTab('upcoming')}
-                className={`py-3 rounded-xl text-sm font-medium transition-all ${
+                className={`cursor-pointer py-3 rounded-xl text-sm font-medium transition-all ${
                   activeTab === 'upcoming'
                     ? 'bg-white text-primary-700 shadow-card'
                     : 'text-slate-500 hover:text-slate-700'
@@ -239,7 +239,7 @@ export default function PatientAppointmentsPage() {
               <button
                 type="button"
                 onClick={() => setActiveTab('past')}
-                className={`py-3 rounded-xl text-sm font-medium transition-all ${
+                className={`cursor-pointer py-3 rounded-xl text-sm font-medium transition-all ${
                   activeTab === 'past'
                     ? 'bg-white text-primary-700 shadow-card'
                     : 'text-slate-500 hover:text-slate-700'
@@ -266,7 +266,7 @@ export default function PatientAppointmentsPage() {
                 <select
                   value={upcomingStatus}
                   onChange={e => setUpcomingStatus(e.target.value)}
-                  className="input-base"
+                  className="input-base cursor-pointer"
                 >
                   <option value="all">All</option>
                   <option value="confirmed">Confirmed</option>
@@ -276,7 +276,7 @@ export default function PatientAppointmentsPage() {
                 <select
                   value={pastStatus}
                   onChange={e => setPastStatus(e.target.value)}
-                  className="input-base"
+                  className="input-base cursor-pointer"
                 >
                   <option value="all">All</option>
                   <option value="completed">Completed</option>
@@ -340,7 +340,7 @@ export default function PatientAppointmentsPage() {
               </p>
 
               {activeTab === 'upcoming' && (
-                <Link href="/dashboard" className="btn-primary mt-6">
+                <Link href="/dashboard" className="btn-primary mt-6 cursor-pointer">
                   Find Doctors
                 </Link>
               )}

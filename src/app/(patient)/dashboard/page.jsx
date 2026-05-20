@@ -331,7 +331,7 @@ export default function PatientDashboardPage() {
               <div>
                 <p className="text-xs text-slate-400">Welcome,</p>
                 <h1 className="text-lg font-semibold text-slate-900">
-                  {isLoggedIn ? (meLoading || !user ? 'Loading...' : user.name || 'Patient') : 'Guest'}
+                  {isLoggedIn ? (meLoading || !user ? 'Loading...' : user.name) : 'to this platform'}
                 </h1>
               </div>
             </div>

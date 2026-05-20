@@ -22,14 +22,14 @@ function getInitials(name) {
     .toUpperCase()
 }
 
-function parseSpecializations(value) {
-  if (!value) return []
-  if (Array.isArray(value)) return value
+function parseSpecialization(value) {
+  if (!value) return ''
+  if (Array.isArray(value)) return value[0] || ''
 
   return value
     .split(',')
     .map(item => item.trim())
-    .filter(Boolean)
+    .filter(Boolean)[0] || ''
 }
 
 export default function DoctorProfilePage() {
@@ -41,7 +41,7 @@ export default function DoctorProfilePage() {
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [selectedSpecializations, setSelectedSpecializations] = useState([])
+  const [selectedSpecialization, setSelectedSpecialization] = useState('')
   const [experienceYears, setExperienceYears] = useState('')
   const [consultationFee, setConsultationFee] = useState('')
 
@@ -87,7 +87,7 @@ export default function DoctorProfilePage() {
         setDoctor(user)
         setName(user.name || '')
         setEmail(user.email || '')
-        setSelectedSpecializations(parseSpecializations(user.specialization))
+        setSelectedSpecialization(parseSpecialization(user.specialization))
         setExperienceYears(user.experienceYears ?? '')
         setConsultationFee(user.consultationFee ?? '')
 
@@ -112,15 +112,8 @@ export default function DoctorProfilePage() {
     fetchDoctor()
   }, [status])
 
-  const toggleSpecialization = spec => {
-    setSelectedSpecializations(prev => {
-      if (prev.includes(spec)) {
-        return prev.filter(item => item !== spec)
-      }
-
-      return [...prev, spec]
-    })
-
+  const selectSpecialization = spec => {
+    setSelectedSpecialization(spec)
     setError('')
     setMessage('')
   }
@@ -161,8 +154,8 @@ export default function DoctorProfilePage() {
   const handleSubmit = async e => {
     e.preventDefault()
 
-    if (selectedSpecializations.length === 0) {
-      setError('Please select at least one specialization.')
+    if (!selectedSpecialization) {
+      setError('Please select one specialization.')
       return
     }
 
@@ -189,7 +182,7 @@ export default function DoctorProfilePage() {
     try {
       const formData = new FormData()
 
-      formData.append('specialization', selectedSpecializations.join(', '))
+      formData.append('specialization', selectedSpecialization)
       formData.append('experienceYears', experienceYears || '0')
       formData.append('consultationFee', consultationFee)
 
@@ -225,7 +218,7 @@ export default function DoctorProfilePage() {
       setDoctor(updatedDoctor)
       setName(updatedDoctor?.name || name)
       setEmail(updatedDoctor?.email || email)
-      setSelectedSpecializations(parseSpecializations(updatedDoctor?.specialization))
+      setSelectedSpecialization(parseSpecialization(updatedDoctor?.specialization))
       setExperienceYears(updatedDoctor?.experienceYears ?? '')
       setConsultationFee(updatedDoctor?.consultationFee ?? '')
 
@@ -249,7 +242,7 @@ export default function DoctorProfilePage() {
       if (update) {
         await update({
           profileUrl: updatedDoctor?.profileUrl || null,
-          specialization: updatedDoctor?.specialization || selectedSpecializations.join(', '),
+          specialization: updatedDoctor?.specialization || selectedSpecialization,
         })
       }
     } catch {
@@ -280,14 +273,14 @@ export default function DoctorProfilePage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setMobileOpen(true)}
-                className="lg:hidden w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center"
+                className="lg:hidden w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center cursor-pointer"
               >
                 <span className="text-xl leading-none">≡</span>
               </button>
               <h1 className="text-lg font-semibold text-slate-900">Doctor Profile</h1>
             </div>
 
-            <Link href="/doctor/dashboard" className="text-sm font-medium text-primary-600">
+            <Link href="/doctor/dashboard" className="text-sm font-medium text-primary-600 cursor-pointer">
               Dashboard
             </Link>
           </div>
@@ -321,7 +314,7 @@ export default function DoctorProfilePage() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="group relative w-28 h-28 rounded-full overflow-hidden bg-primary-50 border-2 border-primary-100 flex items-center justify-center"
+                  className="group relative w-28 h-28 rounded-full overflow-hidden bg-primary-50 border-2 border-primary-100 flex items-center justify-center cursor-pointer"
                 >
                   {preview ? (
                     <img src={preview} alt="Profile" className="w-full h-full object-cover" />
@@ -344,7 +337,7 @@ export default function DoctorProfilePage() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="btn-secondary px-3 py-2 text-xs"
+                      className="btn-secondary px-3 py-2 text-xs cursor-pointer"
                     >
                       Upload New
                     </button>
@@ -352,7 +345,7 @@ export default function DoctorProfilePage() {
                     <button
                       type="button"
                       onClick={handleDeleteImage}
-                      className="px-3 py-2 rounded-xl text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
+                      className="px-3 py-2 rounded-xl text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 transition-colors cursor-pointer"
                     >
                       Delete Image
                     </button>
@@ -413,17 +406,17 @@ export default function DoctorProfilePage() {
               </div>
 
               <div>
-                <label className="label">Specializations</label>
+                <label className="label">Specialization</label>
                 <div className="flex flex-wrap gap-2">
                   {SPECIALIZATIONS.map(spec => {
-                    const active = selectedSpecializations.includes(spec)
+                    const active = selectedSpecialization === spec
 
                     return (
                       <button
                         key={spec}
                         type="button"
-                        onClick={() => toggleSpecialization(spec)}
-                        className={`px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
+                        onClick={() => selectSpecialization(spec)}
+                        className={`px-3 py-2 rounded-xl border text-sm font-medium transition-all cursor-pointer ${
                           active
                             ? 'bg-primary-600 border-primary-600 text-white'
                             : 'bg-white border-slate-200 text-slate-600 hover:bg-primary-50 hover:border-primary-200 hover:text-primary-700'
@@ -435,7 +428,7 @@ export default function DoctorProfilePage() {
                   })}
                 </div>
                 <p className="text-xs text-slate-400 mt-2">
-                  Select one or more specializations.
+                  Select one primary specialization.
                 </p>
               </div>
 
@@ -518,7 +511,9 @@ export default function DoctorProfilePage() {
               <button
                 type="submit"
                 disabled={loading || fetching}
-                className="btn-primary w-full py-3"
+                className={`btn-primary w-full py-3 ${
+                  loading || fetching ? 'cursor-not-allowed' : 'cursor-pointer'
+                }`}
               >
                 {loading ? 'Saving...' : 'Save Changes'}
               </button>

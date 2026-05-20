@@ -197,7 +197,7 @@ export default function DoctorHistoryPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setMobileOpen(true)}
-                className="lg:hidden w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center"
+                className="lg:hidden w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center cursor-pointer"
               >
                 <span className="text-xl leading-none">≡</span>
               </button>
@@ -207,7 +207,7 @@ export default function DoctorHistoryPage() {
             <button
               type="button"
               onClick={fetchHistory}
-              className="hidden sm:inline-flex px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              className="hidden sm:inline-flex px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
             >
               Refresh
             </button>
@@ -260,7 +260,7 @@ export default function DoctorHistoryPage() {
                 <select
                   value={statusFilter}
                   onChange={e => setStatusFilter(e.target.value)}
-                  className="input-base text-sm py-2 sm:w-44"
+                  className="input-base text-sm py-2 sm:w-44 cursor-pointer"
                 >
                   <option value="all">All</option>
                   <option value="completed">Completed</option>
@@ -270,7 +270,7 @@ export default function DoctorHistoryPage() {
                 <button
                   type="button"
                   onClick={fetchHistory}
-                  className="sm:hidden px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                  className="sm:hidden px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   Refresh
                 </button>
