@@ -786,7 +786,7 @@ export default function AiBookingAssistant() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`cursor-pointer fixed bottom-5 right-5 z-50 w-14 h-14 rounded-2xl bg-primary-600 text-white shadow-2xl hover:bg-primary-700 transition-all flex items-center justify-center ${
+        className={`cursor-pointer fixed bottom-5 right-5 z-[9999] w-14 h-14 rounded-2xl bg-primary-600 text-white shadow-2xl hover:bg-primary-700 transition-all flex items-center justify-center ${
           open ? 'hidden' : ''
         }`}
       >
@@ -794,7 +794,7 @@ export default function AiBookingAssistant() {
       </button>
 
       {open && (
-        <div className="fixed inset-x-3 bottom-3 sm:inset-auto sm:right-5 sm:bottom-5 sm:w-[420px] z-50">
+        <div className="fixed inset-x-3 bottom-3 sm:inset-auto sm:right-5 sm:bottom-5 sm:w-[420px] z-[9999]">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl overflow-hidden h-[78vh] sm:h-[620px] flex flex-col">
             <div className="bg-gradient-to-br from-primary-600 to-primary-800 px-5 py-4 text-white flex items-start justify-between gap-4 shrink-0">
               <div>
