@@ -28,12 +28,13 @@ function loadRazorpayScript() {
   })
 }
 
-function DoctorOptionCard({ doctor, onSelect }) {
+function DoctorOptionCard({ doctor, onSelect, disabled }) {
   return (
     <button
       type="button"
       onClick={() => onSelect(doctor)}
-      className="cursor-pointer w-full text-left rounded-2xl border border-slate-100 bg-white hover:bg-primary-50 hover:border-primary-200 transition-all p-4"
+      disabled={disabled}
+      className="cursor-pointer w-full text-left rounded-2xl border border-slate-100 bg-white hover:bg-primary-50 hover:border-primary-200 transition-all p-4 disabled:opacity-60 disabled:cursor-not-allowed"
     >
       <div className="flex gap-3">
         <div className="w-12 h-12 rounded-2xl bg-primary-50 border border-primary-100 flex items-center justify-center overflow-hidden shrink-0">
@@ -86,7 +87,7 @@ function DoctorOptionCard({ doctor, onSelect }) {
   )
 }
 
-function MessageBubble({ message, handlers, paymentLoading }) {
+function MessageBubble({ message, handlers, paymentLoading, actionDisabled }) {
   const isUser = message.role === 'user'
 
   return (
@@ -108,7 +109,8 @@ function MessageBubble({ message, handlers, paymentLoading }) {
               <button
                 type="button"
                 onClick={handlers.onNearby}
-                className="cursor-pointer w-full px-4 py-2.5 rounded-xl bg-primary-600 text-white text-xs font-medium hover:bg-primary-700 transition-colors"
+                disabled={actionDisabled}
+                className="cursor-pointer w-full px-4 py-2.5 rounded-xl bg-primary-600 text-white text-xs font-medium hover:bg-primary-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Show Nearby Doctors
               </button>
@@ -120,6 +122,7 @@ function MessageBubble({ message, handlers, paymentLoading }) {
                   key={doctor._id}
                   doctor={doctor}
                   onSelect={handlers.onSelectDoctor}
+                  disabled={actionDisabled}
                 />
               ))
             ) : (
@@ -138,13 +141,14 @@ function MessageBubble({ message, handlers, paymentLoading }) {
               <button
                 key={date.date}
                 type="button"
+                disabled={actionDisabled}
                 onClick={() =>
                   handlers.onSelectDate(date, {
                     doctorId: message.options.doctorId,
                     doctor: message.options.doctor,
                   })
                 }
-                className="cursor-pointer rounded-xl border border-slate-200 bg-white hover:bg-primary-50 hover:border-primary-200 transition-all px-3 py-3 text-left"
+                className="cursor-pointer rounded-xl border border-slate-200 bg-white hover:bg-primary-50 hover:border-primary-200 transition-all px-3 py-3 text-left disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <p className="text-xs font-semibold text-slate-900">
                   {date.label}
@@ -166,6 +170,7 @@ function MessageBubble({ message, handlers, paymentLoading }) {
               <button
                 key={slot.label}
                 type="button"
+                disabled={actionDisabled}
                 onClick={() =>
                   handlers.onSelectSlot(slot, {
                     doctorId: message.options.doctorId,
@@ -173,7 +178,7 @@ function MessageBubble({ message, handlers, paymentLoading }) {
                     date: message.options.date,
                   })
                 }
-                className="cursor-pointer rounded-xl border border-slate-200 bg-white hover:bg-primary-50 hover:border-primary-200 transition-all px-3 py-2.5 text-xs font-medium text-slate-700"
+                className="cursor-pointer rounded-xl border border-slate-200 bg-white hover:bg-primary-50 hover:border-primary-200 transition-all px-3 py-2.5 text-xs font-medium text-slate-700 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {slot.label}
               </button>
@@ -270,6 +275,7 @@ export default function AiBookingAssistant() {
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [paymentLoading, setPaymentLoading] = useState(false)
+  const [cooldownSeconds, setCooldownSeconds] = useState(0)
 
   const [context, setContext] = useState({
     stage: 'idle',
@@ -294,6 +300,19 @@ export default function AiBookingAssistant() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, open])
 
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return
+
+    const timer = setInterval(() => {
+      setCooldownSeconds(prev => {
+        if (prev <= 1) return 0
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [cooldownSeconds])
+
   const updateLastAssistant = updater => {
     setMessages(prev => {
       const copy = [...prev]
@@ -305,6 +324,16 @@ export default function AiBookingAssistant() {
 
       return copy
     })
+  }
+
+  const startCooldown = seconds => {
+    const safeSeconds = Number(seconds)
+
+    setCooldownSeconds(
+      Number.isFinite(safeSeconds) && safeSeconds > 0
+        ? Math.ceil(safeSeconds)
+        : 60
+    )
   }
 
   const releasePendingAppointment = async appointmentId => {
@@ -454,7 +483,7 @@ export default function AiBookingAssistant() {
   }
 
   const callAI = async ({ message, action = 'message', extra = {}, silentUserMessage = false }) => {
-    if (sending) return
+    if (sending || cooldownSeconds > 0) return
 
     const userText = message?.trim()
 
@@ -479,6 +508,11 @@ export default function AiBookingAssistant() {
           ...extra,
         }),
       })
+
+      if (res.status === 429) {
+        const retryAfter = Number(res.headers.get('Retry-After') || 60)
+        startCooldown(retryAfter)
+      }
 
       if (!res.body) {
         throw new Error('No response stream')
@@ -556,13 +590,15 @@ export default function AiBookingAssistant() {
     e.preventDefault()
 
     const value = input.trim()
-    if (!value) return
+    if (!value || cooldownSeconds > 0) return
 
     setInput('')
     callAI({ message: value, action: 'message' })
   }
 
   const handleNearby = () => {
+    if (cooldownSeconds > 0) return
+
     if (!navigator.geolocation) {
       setMessages(prev => [
         ...prev,
@@ -613,6 +649,8 @@ export default function AiBookingAssistant() {
   }
 
   const handleSelectDoctor = doctor => {
+    if (cooldownSeconds > 0) return
+
     const nextContext = {
       ...context,
       selectedDoctor: doctor,
@@ -642,6 +680,8 @@ export default function AiBookingAssistant() {
   }
 
   const handleSelectDate = (date, meta = {}) => {
+    if (cooldownSeconds > 0) return
+
     const selectedDoctor = meta.doctor || context.selectedDoctor
 
     const nextContext = {
@@ -674,6 +714,8 @@ export default function AiBookingAssistant() {
   }
 
   const handleSelectSlot = (slot, meta = {}) => {
+    if (cooldownSeconds > 0) return
+
     const selectedDoctor = meta.doctor || context.selectedDoctor
     const selectedDate = meta.date || context.selectedDate
 
@@ -781,6 +823,8 @@ export default function AiBookingAssistant() {
     }
   }
 
+  const aiLocked = sending || paymentLoading || cooldownSeconds > 0
+
   return (
     <>
       <button
@@ -815,12 +859,34 @@ export default function AiBookingAssistant() {
               </button>
             </div>
 
+            {cooldownSeconds > 0 && (
+              <div className="mx-4 mt-4 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 shrink-0">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-amber-800">
+                      AI limit reached
+                    </p>
+                    <p className="text-xs text-amber-700 mt-1">
+                      You will be able to chat again after {cooldownSeconds} second{cooldownSeconds > 1 ? 's' : ''}.
+                    </p>
+                  </div>
+
+                  <div className="w-11 h-11 rounded-2xl bg-white border border-amber-200 flex items-center justify-center shrink-0">
+                    <span className="text-sm font-bold text-amber-700">
+                      {cooldownSeconds}s
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-white">
               {messages.map((message, index) => (
                 <MessageBubble
                   key={index}
                   message={message}
                   paymentLoading={paymentLoading}
+                  actionDisabled={aiLocked}
                   handlers={{
                     onNearby: handleNearby,
                     onSelectDoctor: handleSelectDoctor,
@@ -853,22 +919,32 @@ export default function AiBookingAssistant() {
                 <input
                   value={input}
                   onChange={e => setInput(e.target.value)}
-                  placeholder="Describe your symptoms..."
+                  placeholder={
+                    cooldownSeconds > 0
+                      ? `Wait ${cooldownSeconds}s to chat again...`
+                      : 'Describe your symptoms...'
+                  }
                   className="flex-1 input-base text-sm"
-                  disabled={sending || paymentLoading}
+                  disabled={aiLocked}
                 />
 
                 <button
                   type="submit"
-                  disabled={sending || paymentLoading || !input.trim()}
+                  disabled={aiLocked || !input.trim()}
                   className="cursor-pointer px-4 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Send
+                  {cooldownSeconds > 0
+                    ? `${cooldownSeconds}s`
+                    : sending
+                      ? 'Wait'
+                      : 'Send'}
                 </button>
               </div>
 
               <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
-                This assistant does not diagnose. For severe symptoms, seek urgent medical help.
+                {cooldownSeconds > 0
+                  ? `Rate limit active. You can send your next message after ${cooldownSeconds} second${cooldownSeconds > 1 ? 's' : ''}.`
+                  : 'This assistant does not diagnose. For severe symptoms, seek urgent medical help.'}
               </p>
             </form>
           </div>

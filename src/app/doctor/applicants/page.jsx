@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import DoctorSidebar from '@/components/doctor/DoctorSidebar'
 
+const APPLICANTS_PER_PAGE = 6
+
 function getInitials(name) {
   return name
     ?.split(' ')
@@ -34,6 +36,22 @@ function formatDate(dateString) {
     month: 'short',
     year: 'numeric',
   })
+}
+
+function getPageNumbers(page, totalPages) {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
+  }
+
+  if (page <= 3) {
+    return [1, 2, 3, 4, totalPages]
+  }
+
+  if (page >= totalPages - 2) {
+    return [1, totalPages - 3, totalPages - 2, totalPages - 1, totalPages]
+  }
+
+  return [1, page - 1, page, page + 1, totalPages]
 }
 
 function StatusBadge({ status }) {
@@ -125,18 +143,40 @@ export default function DoctorApplicantsPage() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [date, setDate] = useState(getTodayDateString())
   const [statusFilter, setStatusFilter] = useState('confirmed')
+  const [page, setPage] = useState(1)
+
   const [appointments, setAppointments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: APPLICANTS_PER_PAGE,
+    totalAppointments: 0,
+    totalPages: 0,
+    hasPrevPage: false,
+    hasNextPage: false,
+  })
+
   const minDate = useMemo(() => getTodayDateString(), [])
+
+  const pageNumbers = useMemo(() => {
+    return getPageNumbers(page, pagination.totalPages || 0)
+  }, [page, pagination.totalPages])
 
   const fetchApplicants = async () => {
     setLoading(true)
     setError('')
 
     try {
-      const res = await fetch(`/api/doctor/applicants?date=${date}&status=${statusFilter}`, {
+      const params = new URLSearchParams({
+        date,
+        status: statusFilter,
+        page: String(page),
+        limit: String(APPLICANTS_PER_PAGE),
+      })
+
+      const res = await fetch(`/api/doctor/applicants?${params.toString()}`, {
         method: 'GET',
         cache: 'no-store',
       })
@@ -146,13 +186,45 @@ export default function DoctorApplicantsPage() {
       if (!res.ok) {
         setError(data.message || 'Failed to fetch applicants.')
         setAppointments([])
+        setPagination({
+          page: 1,
+          limit: APPLICANTS_PER_PAGE,
+          totalAppointments: 0,
+          totalPages: 0,
+          hasPrevPage: false,
+          hasNextPage: false,
+        })
         return
       }
 
       setAppointments(data.appointments || [])
+
+      setPagination(data.pagination || {
+        page,
+        limit: APPLICANTS_PER_PAGE,
+        totalAppointments: data.appointments?.length || 0,
+        totalPages: 1,
+        hasPrevPage: false,
+        hasNextPage: false,
+      })
+
+      if (
+        data.pagination?.totalPages > 0 &&
+        page > data.pagination.totalPages
+      ) {
+        setPage(data.pagination.totalPages)
+      }
     } catch {
       setError('Something went wrong while fetching applicants.')
       setAppointments([])
+      setPagination({
+        page: 1,
+        limit: APPLICANTS_PER_PAGE,
+        totalAppointments: 0,
+        totalPages: 0,
+        hasPrevPage: false,
+        hasNextPage: false,
+      })
     } finally {
       setLoading(false)
     }
@@ -160,7 +232,7 @@ export default function DoctorApplicantsPage() {
 
   useEffect(() => {
     fetchApplicants()
-  }, [date, statusFilter])
+  }, [date, statusFilter, page])
 
   return (
     <div className="min-h-screen bg-surface-2">
@@ -209,7 +281,10 @@ export default function DoctorApplicantsPage() {
                   type="date"
                   min={minDate}
                   value={date}
-                  onChange={e => setDate(e.target.value)}
+                  onChange={e => {
+                    setDate(e.target.value)
+                    setPage(1)
+                  }}
                   className="input-base cursor-pointer"
                 />
               </div>
@@ -218,7 +293,10 @@ export default function DoctorApplicantsPage() {
                 <label className="label">Status</label>
                 <select
                   value={statusFilter}
-                  onChange={e => setStatusFilter(e.target.value)}
+                  onChange={e => {
+                    setStatusFilter(e.target.value)
+                    setPage(1)
+                  }}
                   className="input-base cursor-pointer"
                 >
                   <option value="confirmed">Confirmed</option>
@@ -243,7 +321,9 @@ export default function DoctorApplicantsPage() {
                 Applicants for {formatDate(date)}
               </h2>
               <p className="text-sm text-slate-500 mt-1">
-                {loading ? 'Loading applicants...' : `${appointments.length} appointment(s) found`}
+                {loading
+                  ? 'Loading applicants...'
+                  : `${pagination.totalAppointments || 0} appointment(s) found`}
               </p>
             </div>
           </div>
@@ -277,14 +357,73 @@ export default function DoctorApplicantsPage() {
               ))}
             </div>
           ) : appointments.length > 0 ? (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mt-5">
-              {appointments.map(appointment => (
-                <ApplicantCard
-                  key={appointment._id}
-                  appointment={appointment}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mt-5">
+                {appointments.map(appointment => (
+                  <ApplicantCard
+                    key={appointment._id}
+                    appointment={appointment}
+                  />
+                ))}
+              </div>
+
+              {pagination.totalPages > 1 && (
+                <div className="mt-8 bg-white rounded-2xl border border-slate-100 shadow-card p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <p className="text-sm text-slate-500 text-center sm:text-left">
+                      Showing page{' '}
+                      <span className="font-semibold text-slate-800">
+                        {pagination.page}
+                      </span>{' '}
+                      of{' '}
+                      <span className="font-semibold text-slate-800">
+                        {pagination.totalPages}
+                      </span>
+                    </p>
+
+                    <div className="flex items-center justify-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        disabled={!pagination.hasPrevPage || loading}
+                        onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                        className="cursor-pointer px-3 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Prev
+                      </button>
+
+                      {pageNumbers.map((item, index) => {
+                        const active = item === page
+
+                        return (
+                          <button
+                            key={`${item}-${index}`}
+                            type="button"
+                            onClick={() => setPage(item)}
+                            disabled={active || loading}
+                            className={`cursor-pointer min-w-10 px-3 py-2 rounded-xl border text-sm font-medium transition-all disabled:cursor-not-allowed ${
+                              active
+                                ? 'bg-primary-600 border-primary-600 text-white'
+                                : 'bg-white border-slate-200 text-slate-600 hover:bg-primary-50 hover:border-primary-200 hover:text-primary-700'
+                            }`}
+                          >
+                            {item}
+                          </button>
+                        )
+                      })}
+
+                      <button
+                        type="button"
+                        disabled={!pagination.hasNextPage || loading}
+                        onClick={() => setPage(prev => prev + 1)}
+                        className="cursor-pointer px-3 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <div className="mt-6 bg-white rounded-3xl border border-slate-100 shadow-card p-10 text-center">
               <div className="text-4xl mb-3">📅</div>

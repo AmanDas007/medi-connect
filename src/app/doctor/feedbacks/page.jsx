@@ -1,7 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import DoctorSidebar from '@/components/doctor/DoctorSidebar'
+
+const FEEDBACKS_PER_PAGE = 6
 
 function getInitials(name) {
   return name
@@ -18,6 +20,22 @@ function formatDate(dateString) {
     month: 'short',
     year: 'numeric',
   })
+}
+
+function getPageNumbers(page, totalPages) {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
+  }
+
+  if (page <= 3) {
+    return [1, 2, 3, 4, totalPages]
+  }
+
+  if (page >= totalPages - 2) {
+    return [1, totalPages - 3, totalPages - 2, totalPages - 1, totalPages]
+  }
+
+  return [1, page - 1, page, page + 1, totalPages]
 }
 
 function StarDisplay({ rating, size = 'text-sm' }) {
@@ -132,6 +150,8 @@ export default function DoctorFeedbacksPage() {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const [ratingFilter, setRatingFilter] = useState('all')
+  const [page, setPage] = useState(1)
+
   const [feedbacks, setFeedbacks] = useState([])
   const [stats, setStats] = useState({
     totalFeedbacks: 0,
@@ -145,15 +165,34 @@ export default function DoctorFeedbacksPage() {
     },
   })
 
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: FEEDBACKS_PER_PAGE,
+    totalFeedbacks: 0,
+    totalPages: 0,
+    hasPrevPage: false,
+    hasNextPage: false,
+  })
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  const pageNumbers = useMemo(() => {
+    return getPageNumbers(page, pagination.totalPages || 0)
+  }, [page, pagination.totalPages])
 
   const fetchFeedbacks = async () => {
     setLoading(true)
     setError('')
 
     try {
-      const res = await fetch(`/api/doctor/feedbacks?rating=${ratingFilter}`, {
+      const params = new URLSearchParams({
+        rating: ratingFilter,
+        page: String(page),
+        limit: String(FEEDBACKS_PER_PAGE),
+      })
+
+      const res = await fetch(`/api/doctor/feedbacks?${params.toString()}`, {
         method: 'GET',
         cache: 'no-store',
       })
@@ -163,6 +202,14 @@ export default function DoctorFeedbacksPage() {
       if (!res.ok) {
         setError(data.message || 'Failed to fetch feedbacks.')
         setFeedbacks([])
+        setPagination({
+          page: 1,
+          limit: FEEDBACKS_PER_PAGE,
+          totalFeedbacks: 0,
+          totalPages: 0,
+          hasPrevPage: false,
+          hasNextPage: false,
+        })
         return
       }
 
@@ -180,9 +227,33 @@ export default function DoctorFeedbacksPage() {
           },
         }
       )
+
+      setPagination(data.pagination || {
+        page,
+        limit: FEEDBACKS_PER_PAGE,
+        totalFeedbacks: data.feedbacks?.length || 0,
+        totalPages: 1,
+        hasPrevPage: false,
+        hasNextPage: false,
+      })
+
+      if (
+        data.pagination?.totalPages > 0 &&
+        page > data.pagination.totalPages
+      ) {
+        setPage(data.pagination.totalPages)
+      }
     } catch {
       setError('Something went wrong while fetching feedbacks.')
       setFeedbacks([])
+      setPagination({
+        page: 1,
+        limit: FEEDBACKS_PER_PAGE,
+        totalFeedbacks: 0,
+        totalPages: 0,
+        hasPrevPage: false,
+        hasNextPage: false,
+      })
     } finally {
       setLoading(false)
     }
@@ -190,7 +261,7 @@ export default function DoctorFeedbacksPage() {
 
   useEffect(() => {
     fetchFeedbacks()
-  }, [ratingFilter])
+  }, [ratingFilter, page])
 
   return (
     <div className="min-h-screen bg-surface-2">
@@ -277,7 +348,7 @@ export default function DoctorFeedbacksPage() {
                 <p className="text-sm text-slate-500 mt-1">
                   {loading
                     ? 'Loading feedbacks...'
-                    : `${feedbacks.length} feedback(s) found`}
+                    : `${pagination.totalFeedbacks || 0} feedback(s) found`}
                 </p>
               </div>
 
@@ -286,7 +357,10 @@ export default function DoctorFeedbacksPage() {
                   value="all"
                   active={ratingFilter === 'all'}
                   count={stats.totalFeedbacks || 0}
-                  onClick={() => setRatingFilter('all')}
+                  onClick={() => {
+                    setRatingFilter('all')
+                    setPage(1)
+                  }}
                 />
 
                 {[5, 4, 3, 2, 1].map(rating => (
@@ -295,7 +369,10 @@ export default function DoctorFeedbacksPage() {
                     value={String(rating)}
                     active={ratingFilter === String(rating)}
                     count={stats.ratingCounts?.[rating] || 0}
-                    onClick={() => setRatingFilter(String(rating))}
+                    onClick={() => {
+                      setRatingFilter(String(rating))
+                      setPage(1)
+                    }}
                   />
                 ))}
               </div>
@@ -334,11 +411,70 @@ export default function DoctorFeedbacksPage() {
                 ))}
               </div>
             ) : feedbacks.length > 0 ? (
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-5">
-                {feedbacks.map(feedback => (
-                  <FeedbackCard key={feedback._id} feedback={feedback} />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-5">
+                  {feedbacks.map(feedback => (
+                    <FeedbackCard key={feedback._id} feedback={feedback} />
+                  ))}
+                </div>
+
+                {pagination.totalPages > 1 && (
+                  <div className="mt-8 bg-white rounded-2xl border border-slate-100 shadow-card p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <p className="text-sm text-slate-500 text-center sm:text-left">
+                        Showing page{' '}
+                        <span className="font-semibold text-slate-800">
+                          {pagination.page}
+                        </span>{' '}
+                        of{' '}
+                        <span className="font-semibold text-slate-800">
+                          {pagination.totalPages}
+                        </span>
+                      </p>
+
+                      <div className="flex items-center justify-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          disabled={!pagination.hasPrevPage || loading}
+                          onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                          className="cursor-pointer px-3 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Prev
+                        </button>
+
+                        {pageNumbers.map((item, index) => {
+                          const active = item === page
+
+                          return (
+                            <button
+                              key={`${item}-${index}`}
+                              type="button"
+                              onClick={() => setPage(item)}
+                              disabled={active || loading}
+                              className={`cursor-pointer min-w-10 px-3 py-2 rounded-xl border text-sm font-medium transition-all disabled:cursor-not-allowed ${
+                                active
+                                  ? 'bg-primary-600 border-primary-600 text-white'
+                                  : 'bg-white border-slate-200 text-slate-600 hover:bg-primary-50 hover:border-primary-200 hover:text-primary-700'
+                              }`}
+                            >
+                              {item}
+                            </button>
+                          )
+                        })}
+
+                        <button
+                          type="button"
+                          disabled={!pagination.hasNextPage || loading}
+                          onClick={() => setPage(prev => prev + 1)}
+                          className="cursor-pointer px-3 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="mt-5 bg-surface-2 rounded-2xl border border-slate-100 p-10 text-center">
                 <div className="text-4xl mb-3">⭐</div>

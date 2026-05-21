@@ -4,69 +4,95 @@ import connectDB from "@/db/connect";
 import DoctorFeedback from "@/models/DoctorFeedback";
 import { requireDoctor } from "@/lib/apiAuth";
 
+function formatFeedback(feedback) {
+  return {
+    _id: feedback._id,
+    rating: feedback.rating,
+    comment: feedback.comment || "",
+    createdAt: feedback.createdAt,
+    patient: feedback.patient,
+  };
+}
+
 export async function GET(req) {
   try {
     await connectDB();
 
     const auth = await requireDoctor();
+
     if (auth.error) return auth.error;
 
-    const doctorId = auth.user.id || auth.user._id;
-
     const { searchParams } = new URL(req.url);
+
     const rating = searchParams.get("rating") || "all";
 
-    const baseQuery = {
-      doctor: doctorId,
+    const requestedPage = Math.max(1, Number(searchParams.get("page") || 1));
+    const limit = Math.min(
+      30,
+      Math.max(1, Number(searchParams.get("limit") || 6))
+    );
+
+    const statsDocs = await DoctorFeedback.find({
+      doctor: auth.user.id,
+    })
+      .select("rating")
+      .lean();
+
+    const totalFeedbacks = statsDocs.length;
+
+    const ratingCounts = {
+      5: 0,
+      4: 0,
+      3: 0,
+      2: 0,
+      1: 0,
     };
 
-    const feedbackQuery = {
-      doctor: doctorId,
+    let ratingSum = 0;
+
+    statsDocs.forEach(item => {
+      const value = Number(item.rating);
+
+      if (value >= 1 && value <= 5) {
+        ratingCounts[value] += 1;
+        ratingSum += value;
+      }
+    });
+
+    const averageRating =
+      totalFeedbacks > 0 ? Number((ratingSum / totalFeedbacks).toFixed(1)) : 0;
+
+    const query = {
+      doctor: auth.user.id,
     };
 
     if (rating !== "all") {
       const ratingNumber = Number(rating);
 
-      if (
-        Number.isNaN(ratingNumber) ||
-        ratingNumber < 1 ||
-        ratingNumber > 5
-      ) {
+      if (!Number.isInteger(ratingNumber) || ratingNumber < 1 || ratingNumber > 5) {
         return NextResponse.json(
           { success: false, message: "Invalid rating filter" },
           { status: 400 }
         );
       }
 
-      feedbackQuery.rating = ratingNumber;
+      query.rating = ratingNumber;
     }
 
-    const allFeedbacks = await DoctorFeedback.find(baseQuery).lean();
+    const totalFilteredFeedbacks = await DoctorFeedback.countDocuments(query);
 
-    const feedbacks = await DoctorFeedback.find(feedbackQuery)
+    const totalPages = Math.ceil(totalFilteredFeedbacks / limit);
+    const page = totalPages > 0 ? Math.min(requestedPage, totalPages) : 1;
+    const skip = (page - 1) * limit;
+
+    const feedbackDocs = await DoctorFeedback.find(query)
       .populate("patient", "name email profileUrl")
       .sort({ rating: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .lean();
 
-    const totalFeedbacks = allFeedbacks.length;
-
-    const averageRating =
-      totalFeedbacks > 0
-        ? Number(
-            (
-              allFeedbacks.reduce((sum, item) => sum + item.rating, 0) /
-              totalFeedbacks
-            ).toFixed(1)
-          )
-        : 0;
-
-    const ratingCounts = {
-      5: allFeedbacks.filter(item => item.rating === 5).length,
-      4: allFeedbacks.filter(item => item.rating === 4).length,
-      3: allFeedbacks.filter(item => item.rating === 3).length,
-      2: allFeedbacks.filter(item => item.rating === 2).length,
-      1: allFeedbacks.filter(item => item.rating === 1).length,
-    };
+    const feedbacks = feedbackDocs.map(formatFeedback);
 
     return NextResponse.json(
       {
@@ -77,11 +103,19 @@ export async function GET(req) {
           averageRating,
           ratingCounts,
         },
+        pagination: {
+          page,
+          limit,
+          totalFeedbacks: totalFilteredFeedbacks,
+          totalPages,
+          hasPrevPage: page > 1,
+          hasNextPage: page < totalPages,
+        },
       },
       { status: 200 }
     );
   } catch (error) {
-    console.error("Doctor feedbacks fetch error:", error);
+    console.error("Fetch doctor feedbacks error:", error);
 
     return NextResponse.json(
       {

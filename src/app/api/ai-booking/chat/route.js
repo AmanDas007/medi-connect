@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import groq from "@/lib/groq";
+import redis from "@/lib/redis";
 import connectDB from "@/db/connect";
 import Doctor from "@/models/Doctor";
 import Appointment from "@/models/Appointment";
@@ -27,6 +28,11 @@ const SPECIALIZATIONS = [
   "Pathologist",
   "Anesthesiologist",
 ];
+
+const AI_RATE_LIMIT_MAX = Number(process.env.AI_RATE_LIMIT_MAX || 10);
+const AI_RATE_LIMIT_WINDOW_SECONDS = Number(
+  process.env.AI_RATE_LIMIT_WINDOW_SECONDS || 60
+);
 
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -70,6 +76,96 @@ async function streamPlainText(send, text) {
       await new Promise(resolve => setTimeout(resolve, 8));
     }
   }
+}
+
+function getRateLimitKey(req) {
+  const forwardedFor = req.headers.get("x-forwarded-for");
+  const realIp = req.headers.get("x-real-ip");
+  const cfIp = req.headers.get("cf-connecting-ip");
+  const userAgent = req.headers.get("user-agent") || "unknown";
+
+  const ip =
+    forwardedFor?.split(",")?.[0]?.trim() ||
+    realIp ||
+    cfIp ||
+    "unknown-ip";
+
+  const safeIdentity = `${ip}:${userAgent.slice(0, 80)}`
+    .replace(/[^a-zA-Z0-9:._-]/g, "_")
+    .slice(0, 180);
+
+  return `rate-limit:ai-booking:${safeIdentity}`;
+}
+
+async function checkAiRateLimit(req) {
+  if (!redis) {
+    return {
+      allowed: true,
+      limit: AI_RATE_LIMIT_MAX,
+      remaining: AI_RATE_LIMIT_MAX,
+      resetIn: AI_RATE_LIMIT_WINDOW_SECONDS,
+    };
+  }
+
+  try {
+    const key = getRateLimitKey(req);
+
+    const current = await redis.incr(key);
+
+    if (current === 1) {
+      await redis.expire(key, AI_RATE_LIMIT_WINDOW_SECONDS);
+    }
+
+    let ttl = await redis.ttl(key);
+
+    if (ttl === -1) {
+      await redis.expire(key, AI_RATE_LIMIT_WINDOW_SECONDS);
+      ttl = AI_RATE_LIMIT_WINDOW_SECONDS;
+    }
+
+    const resetIn =
+      typeof ttl === "number" && ttl > 0
+        ? ttl
+        : AI_RATE_LIMIT_WINDOW_SECONDS;
+
+    return {
+      allowed: current <= AI_RATE_LIMIT_MAX,
+      limit: AI_RATE_LIMIT_MAX,
+      remaining: Math.max(0, AI_RATE_LIMIT_MAX - current),
+      resetIn,
+    };
+  } catch (error) {
+    console.error("AI rate limit Redis error:", error);
+
+    return {
+      allowed: true,
+      limit: AI_RATE_LIMIT_MAX,
+      remaining: AI_RATE_LIMIT_MAX,
+      resetIn: AI_RATE_LIMIT_WINDOW_SECONDS,
+    };
+  }
+}
+
+function createRateLimitResponse(rateLimit) {
+  const stream = createStream(async send => {
+    await streamPlainText(
+      send,
+      `You have reached the AI assistant limit of ${rateLimit.limit} requests per minute. Please wait ${rateLimit.resetIn} seconds and try again.`
+    );
+  });
+
+  return new Response(stream, {
+    status: 429,
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "Retry-After": String(rateLimit.resetIn),
+      "X-RateLimit-Limit": String(rateLimit.limit),
+      "X-RateLimit-Remaining": String(rateLimit.remaining),
+      "X-RateLimit-Reset": String(rateLimit.resetIn),
+    },
+  });
 }
 
 function safeJsonParse(value, fallback = {}) {
@@ -203,7 +299,6 @@ Rules:
 function getRuleBasedSpecialization(symptoms) {
   const text = symptoms.toLowerCase();
 
-  // common first-contact symptoms => General Physician
   if (
     text.includes("cough") ||
     text.includes("cold") ||
@@ -535,6 +630,12 @@ async function getAvailableDatesForDoctor(doctor) {
 }
 
 export async function POST(req) {
+  const rateLimit = await checkAiRateLimit(req);
+
+  if (!rateLimit.allowed) {
+    return createRateLimitResponse(rateLimit);
+  }
+
   await connectDB();
 
   const body = await req.json();

@@ -69,6 +69,12 @@ export async function GET(req) {
     const type = searchParams.get("type") || "upcoming";
     const status = searchParams.get("status") || "all";
 
+    const requestedPage = Math.max(1, Number(searchParams.get("page") || 1));
+    const limit = Math.min(
+      30,
+      Math.max(1, Number(searchParams.get("limit") || 6))
+    );
+
     const now = new Date();
 
     let query = {
@@ -133,6 +139,14 @@ export async function GET(req) {
       );
     }
 
+    const totalAppointments = await Appointment.countDocuments(query);
+
+    const totalPages = Math.ceil(totalAppointments / limit);
+    const page =
+      totalPages > 0 ? Math.min(requestedPage, totalPages) : 1;
+
+    const skip = (page - 1) * limit;
+
     const appointments = await Appointment.find(query)
       .populate({
         path: "doctor",
@@ -140,6 +154,8 @@ export async function GET(req) {
           "name email profileUrl specialization experienceYears clinic consultationFee averageRating totalFeedbacks",
       })
       .sort(sort)
+      .skip(skip)
+      .limit(limit)
       .lean();
 
     const appointmentIds = appointments.map(app => app._id);
@@ -166,6 +182,14 @@ export async function GET(req) {
         type,
         status,
         appointments: formattedAppointments,
+        pagination: {
+          page,
+          limit,
+          totalAppointments,
+          totalPages,
+          hasPrevPage: page > 1,
+          hasNextPage: page < totalPages,
+        },
       },
       { status: 200 }
     );

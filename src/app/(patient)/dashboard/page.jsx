@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import PatientSidebar from '@/components/patient/PatientSidebar'
 
+const DOCTORS_PER_PAGE = 9
+
 function getInitials(name) {
   return name
     ?.split(' ')
@@ -26,6 +28,22 @@ function isUpcomingConfirmedTodayAppointment(appointment) {
     appointment.status === 'confirmed' &&
     new Date(appointment.slotEnd).getTime() > Date.now()
   )
+}
+
+function getPageNumbers(page, totalPages) {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
+  }
+
+  if (page <= 3) {
+    return [1, 2, 3, 4, totalPages]
+  }
+
+  if (page >= totalPages - 2) {
+    return [1, totalPages - 3, totalPages - 2, totalPages - 1, totalPages]
+  }
+
+  return [1, page - 1, page, page + 1, totalPages]
 }
 
 function DoctorCard({ doctor }) {
@@ -170,9 +188,21 @@ export default function PatientDashboardPage() {
 
   const [mobileOpen, setMobileOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [page, setPage] = useState(1)
+
   const [doctors, setDoctors] = useState([])
   const [doctorsLoading, setDoctorsLoading] = useState(true)
   const [doctorsError, setDoctorsError] = useState('')
+
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: DOCTORS_PER_PAGE,
+    totalDoctors: 0,
+    totalPages: 0,
+    hasPrevPage: false,
+    hasNextPage: false,
+  })
 
   const [loggedInUser, setLoggedInUser] = useState(null)
   const [meLoading, setMeLoading] = useState(false)
@@ -184,12 +214,30 @@ export default function PatientDashboardPage() {
   const user = loggedInUser
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1)
+      setDebouncedQuery(query.trim())
+    }, 400)
+
+    return () => clearTimeout(timer)
+  }, [query])
+
+  useEffect(() => {
     const fetchDoctors = async () => {
       setDoctorsLoading(true)
       setDoctorsError('')
 
       try {
-        const res = await fetch('/api/doctors', {
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: String(DOCTORS_PER_PAGE),
+        })
+
+        if (debouncedQuery) {
+          params.set('search', debouncedQuery)
+        }
+
+        const res = await fetch(`/api/doctors?${params.toString()}`, {
           method: 'GET',
           cache: 'no-store',
         })
@@ -198,19 +246,53 @@ export default function PatientDashboardPage() {
 
         if (!res.ok) {
           setDoctorsError(data.message || 'Failed to fetch doctors.')
+          setDoctors([])
+          setPagination({
+            page: 1,
+            limit: DOCTORS_PER_PAGE,
+            totalDoctors: 0,
+            totalPages: 0,
+            hasPrevPage: false,
+            hasNextPage: false,
+          })
           return
         }
 
         setDoctors(data.doctors || [])
+
+        setPagination(data.pagination || {
+          page,
+          limit: DOCTORS_PER_PAGE,
+          totalDoctors: data.doctors?.length || 0,
+          totalPages: 1,
+          hasPrevPage: false,
+          hasNextPage: false,
+        })
+
+        if (
+          data.pagination?.totalPages > 0 &&
+          page > data.pagination.totalPages
+        ) {
+          setPage(data.pagination.totalPages)
+        }
       } catch (error) {
         setDoctorsError('Something went wrong while fetching doctors.')
+        setDoctors([])
+        setPagination({
+          page: 1,
+          limit: DOCTORS_PER_PAGE,
+          totalDoctors: 0,
+          totalPages: 0,
+          hasPrevPage: false,
+          hasNextPage: false,
+        })
       } finally {
         setDoctorsLoading(false)
       }
     }
 
     fetchDoctors()
-  }, [])
+  }, [page, debouncedQuery])
 
   useEffect(() => {
     const fetchMe = async () => {
@@ -281,26 +363,12 @@ export default function PatientDashboardPage() {
   }, [status])
 
   const filteredDoctors = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    return doctors
+  }, [doctors])
 
-    if (!q) return doctors
-
-    return doctors.filter(doctor => {
-      const searchText = [
-        doctor.name,
-        doctor.specialization,
-        doctor.clinic?.city,
-        doctor.clinic?.state,
-        doctor.clinic?.address,
-        doctor.clinic?.name,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-
-      return searchText.includes(q)
-    })
-  }, [query, doctors])
+  const pageNumbers = useMemo(() => {
+    return getPageNumbers(page, pagination.totalPages || 0)
+  }, [page, pagination.totalPages])
 
   if (status === 'loading') {
     return (
@@ -426,7 +494,10 @@ export default function PatientDashboardPage() {
               />
               {query && (
                 <button
-                  onClick={() => setQuery('')}
+                  onClick={() => {
+                    setQuery('')
+                    setPage(1)
+                  }}
                   className="text-xs text-slate-400 hover:text-slate-600 px-3"
                 >
                   Clear
@@ -441,9 +512,15 @@ export default function PatientDashboardPage() {
               <p className="text-sm text-slate-500 mt-1">
                 {doctorsLoading
                   ? 'Loading doctors...'
-                  : `${filteredDoctors.length} doctor(s) found`}
+                  : `${pagination.totalDoctors || 0} doctor(s) found`}
               </p>
             </div>
+
+            {!doctorsLoading && pagination.totalPages > 1 && (
+              <p className="hidden sm:block text-sm text-slate-400">
+                Page {pagination.page} of {pagination.totalPages}
+              </p>
+            )}
           </div>
 
           {doctorsError && (
@@ -471,11 +548,70 @@ export default function PatientDashboardPage() {
               ))}
             </div>
           ) : filteredDoctors.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mt-5">
-              {filteredDoctors.map(doctor => (
-                <DoctorCard key={doctor._id} doctor={doctor} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mt-5">
+                {filteredDoctors.map(doctor => (
+                  <DoctorCard key={doctor._id} doctor={doctor} />
+                ))}
+              </div>
+
+              {pagination.totalPages > 1 && (
+                <div className="mt-8 bg-white rounded-2xl border border-slate-100 shadow-card p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <p className="text-sm text-slate-500 text-center sm:text-left">
+                      Showing page{' '}
+                      <span className="font-semibold text-slate-800">
+                        {pagination.page}
+                      </span>{' '}
+                      of{' '}
+                      <span className="font-semibold text-slate-800">
+                        {pagination.totalPages}
+                      </span>
+                    </p>
+
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        disabled={!pagination.hasPrevPage || doctorsLoading}
+                        onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                        className="px-3 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Prev
+                      </button>
+
+                      {pageNumbers.map((item, index) => {
+                        const active = item === page
+
+                        return (
+                          <button
+                            key={`${item}-${index}`}
+                            type="button"
+                            onClick={() => setPage(item)}
+                            disabled={active || doctorsLoading}
+                            className={`min-w-10 px-3 py-2 rounded-xl border text-sm font-medium transition-all disabled:cursor-not-allowed ${
+                              active
+                                ? 'bg-primary-600 border-primary-600 text-white'
+                                : 'bg-white border-slate-200 text-slate-600 hover:bg-primary-50 hover:border-primary-200 hover:text-primary-700'
+                            }`}
+                          >
+                            {item}
+                          </button>
+                        )
+                      })}
+
+                      <button
+                        type="button"
+                        disabled={!pagination.hasNextPage || doctorsLoading}
+                        onClick={() => setPage(prev => prev + 1)}
+                        className="px-3 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <div className="mt-8 bg-white rounded-2xl border border-slate-100 p-10 text-center">
               <div className="text-4xl mb-3">🔎</div>

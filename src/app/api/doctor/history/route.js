@@ -3,18 +3,31 @@ import { NextResponse } from "next/server";
 import connectDB from "@/db/connect";
 import Appointment from "@/models/Appointment";
 import Payment from "@/models/Payment";
-import Patient from "@/models/Patient";
 import { requireDoctor } from "@/lib/apiAuth";
 
-function isNotDoneAppointment(appointment) {
-  return ["confirmed", "no-show"].includes(appointment.status);
-}
+function formatAppointment(app, payment, now) {
+  let historyStatus = app.status;
 
-function getHistoryStatus(appointment) {
-  if (appointment.status === "completed") return "completed";
-  if (appointment.status === "cancelled") return "cancelled";
-  if (isNotDoneAppointment(appointment)) return "not-done";
-  return appointment.status;
+  if (
+    app.status === "no-show" ||
+    (app.status === "confirmed" && new Date(app.slotEnd).getTime() < now.getTime())
+  ) {
+    historyStatus = "not-done";
+  }
+
+  return {
+    _id: app._id,
+    patient: app.patient,
+    patientName: app.patientName,
+    slotStart: app.slotStart,
+    slotEnd: app.slotEnd,
+    mode: app.mode,
+    status: app.status,
+    historyStatus,
+    feedbackGiven: app.feedbackGiven,
+    createdAt: app.createdAt,
+    payment: payment || null,
+  };
 }
 
 export async function GET(req) {
@@ -22,88 +35,129 @@ export async function GET(req) {
     await connectDB();
 
     const auth = await requireDoctor();
+
     if (auth.error) return auth.error;
 
     const { searchParams } = new URL(req.url);
+
     const status = searchParams.get("status") || "all";
+
+    const requestedPage = Math.max(1, Number(searchParams.get("page") || 1));
+    const limit = Math.min(
+      30,
+      Math.max(1, Number(searchParams.get("limit") || 6))
+    );
 
     const now = new Date();
 
-    await Appointment.updateMany(
-      {
-        doctor: auth.user.id,
-        status: "confirmed",
-        autoCompleteAfterSlot: true,
-        slotEnd: { $lt: now },
-      },
-      {
-        $set: {
-          status: "completed",
-        },
-      }
-    );
-
     const baseQuery = {
       doctor: auth.user.id,
-      slotEnd: { $lt: now },
-      status: {
-        $nin: ["pending-payment", "expired"],
-      },
+      status: { $ne: "cancelled" },
     };
 
-    const allPastAppointments = await Appointment.find(baseQuery)
-      .populate("patient", "name email profileUrl")
-      .sort({ slotStart: -1 })
-      .lean();
+    const completedQuery = {
+      ...baseQuery,
+      status: "completed",
+    };
 
-    let filteredAppointments = allPastAppointments;
+    const notDoneQuery = {
+      doctor: auth.user.id,
+      status: { $ne: "cancelled" },
+      $or: [
+        { status: "no-show" },
+        {
+          status: "confirmed",
+          slotEnd: { $lt: now },
+        },
+      ],
+    };
+
+    let query = {};
 
     if (status === "completed") {
-      filteredAppointments = allPastAppointments.filter(
-        appointment => appointment.status === "completed"
+      query = completedQuery;
+    } else if (status === "not-done") {
+      query = notDoneQuery;
+    } else if (status === "all") {
+      query = {
+        doctor: auth.user.id,
+        status: { $ne: "cancelled" },
+        $or: [
+          { status: "completed" },
+          { status: "no-show" },
+          {
+            status: "confirmed",
+            slotEnd: { $lt: now },
+          },
+        ],
+      };
+    } else {
+      return NextResponse.json(
+        { success: false, message: "Invalid history status filter" },
+        { status: 400 }
       );
     }
 
-    if (status === "not-done") {
-      filteredAppointments = allPastAppointments.filter(isNotDoneAppointment);
-    }
+    const [completedCount, notDoneCount, totalAppointments] = await Promise.all([
+      Appointment.countDocuments(completedQuery),
+      Appointment.countDocuments(notDoneQuery),
+      Appointment.countDocuments(query),
+    ]);
 
-    const appointmentIds = filteredAppointments.map(item => item._id);
+    const totalPages = Math.ceil(totalAppointments / limit);
+    const page = totalPages > 0 ? Math.min(requestedPage, totalPages) : 1;
+    const skip = (page - 1) * limit;
+
+    const appointments = await Appointment.find(query)
+      .populate({
+        path: "patient",
+        select: "name email profileUrl",
+      })
+      .sort({ slotStart: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    const appointmentIds = appointments.map(app => app._id);
 
     const payments = await Payment.find({
       appointment: { $in: appointmentIds },
-    }).lean();
+    })
+      .select(
+        "appointment amount gateway gatewayOrderId gatewayPaymentId status refundAmount paidAt createdAt"
+      )
+      .lean();
 
     const paymentMap = new Map(
       payments.map(payment => [payment.appointment.toString(), payment])
     );
 
-    const appointments = filteredAppointments.map(appointment => ({
-      ...appointment,
-      historyStatus: getHistoryStatus(appointment),
-      payment: paymentMap.get(appointment._id.toString()) || null,
-    }));
-
-    const completedCount = allPastAppointments.filter(
-      appointment => appointment.status === "completed"
-    ).length;
-
-    const notDoneCount = allPastAppointments.filter(isNotDoneAppointment).length;
+    const formattedAppointments = appointments.map(app =>
+      formatAppointment(app, paymentMap.get(app._id.toString()), now)
+    );
 
     return NextResponse.json(
       {
         success: true,
-        appointments,
+        appointments: formattedAppointments,
         stats: {
-          all: allPastAppointments.length,
+          all: completedCount + notDoneCount,
           completed: completedCount,
           notDone: notDoneCount,
+        },
+        pagination: {
+          page,
+          limit,
+          totalAppointments,
+          totalPages,
+          hasPrevPage: page > 1,
+          hasNextPage: page < totalPages,
         },
       },
       { status: 200 }
     );
   } catch (error) {
-    console.error("Doctor history fetch error:", error);
+    console.error("Fetch doctor history error:", error);
 
     return NextResponse.json(
       {
