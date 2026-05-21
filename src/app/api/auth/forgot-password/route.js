@@ -5,7 +5,7 @@ import { findAccountByEmail } from "@/lib/userLookup";
 import { generateOtp, saveOtp, getOtpKey } from "@/lib/otp";
 import { sendOtpEmail } from "@/lib/mail";
 
-import { redis } from "@/lib/redis";
+import redis from "@/lib/redis";
 
 export async function POST(req) {
   try {
