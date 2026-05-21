@@ -95,7 +95,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex bg-white">
       <div className="flex-1 flex flex-col items-center justify-center py-12 px-6 sm:px-12 lg:px-16 xl:px-24">
         <div className="mb-10">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2 cursor-pointer">
             <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center">
               <span className="text-white text-sm font-bold">M</span>
             </div>
@@ -131,7 +131,7 @@ export default function LoginPage() {
               type="button"
               onClick={() => handleOAuthLogin('google')}
               disabled={!!oauthLoading || loading}
-              className="flex items-center justify-center gap-2.5 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-2.5 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {oauthLoading === 'google' ? (
                 <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
@@ -150,7 +150,7 @@ export default function LoginPage() {
               type="button"
               onClick={() => handleOAuthLogin('github')}
               disabled={!!oauthLoading || loading}
-              className="flex items-center justify-center gap-2.5 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-2.5 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {oauthLoading === 'github' ? (
                 <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
@@ -188,7 +188,7 @@ export default function LoginPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label htmlFor="password" className="label !mb-0">Password</label>
-                <Link href="/forgot-password" className="text-xs text-primary-600 hover:text-primary-700 font-medium">
+                <Link href="/forgot-password" className="text-xs text-primary-600 hover:text-primary-700 font-medium cursor-pointer">
                   Forgot password?
                 </Link>
               </div>
@@ -209,7 +209,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-xs text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
                 >
                   {showPassword ? 'Hide' : 'Show'}
                 </button>
@@ -219,7 +219,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading || !!oauthLoading}
-              className="btn-primary w-full py-3 text-sm mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary w-full py-3 text-sm mt-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Signing...' : 'Sign in'}
             </button>
@@ -227,14 +227,14 @@ export default function LoginPage() {
 
           <p className="mt-6 text-center text-sm text-slate-500">
             Don&apos;t have an account?{' '}
-            <Link href="/register" className="font-medium text-primary-600 hover:text-primary-700">
+            <Link href="/register" className="font-medium text-primary-600 hover:text-primary-700 cursor-pointer">
               Create one free
             </Link>
           </p>
 
           <p className="mt-2 text-center text-sm text-slate-500">
             Are you a doctor?{' '}
-            <Link href="/register/doctor" className="font-medium text-primary-600 hover:text-primary-700">
+            <Link href="/register/doctor" className="font-medium text-primary-600 hover:text-primary-700 cursor-pointer">
               Register as doctor
             </Link>
           </p>

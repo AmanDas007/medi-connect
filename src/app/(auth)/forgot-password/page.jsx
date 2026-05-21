@@ -57,7 +57,7 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-6">
+          <Link href="/" className="inline-flex items-center gap-2 mb-6 cursor-pointer">
             <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center">
               <span className="text-white text-sm font-bold">M</span>
             </div>
@@ -112,7 +112,7 @@ export default function ForgotPasswordPage() {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label htmlFor="email" className="label">Email Address</label>
+                  <label htmlFor="email" className="label cursor-pointer">Email Address</label>
                   <input
                     id="email"
                     type="email"
@@ -127,7 +127,7 @@ export default function ForgotPasswordPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="btn-primary w-full py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn-primary w-full py-3 text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -143,7 +143,7 @@ export default function ForgotPasswordPage() {
 
         <p className="text-center text-sm text-slate-500 mt-5">
           Remember your password?{' '}
-          <Link href="/login" className="font-medium text-primary-600 hover:text-primary-700">Back to login</Link>
+          <Link href="/login" className="font-medium text-primary-600 hover:text-primary-700 cursor-pointer">Back to login</Link>
         </p>
       </div>
     </div>

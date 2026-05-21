@@ -49,7 +49,6 @@ export default function DoctorRegisterPage() {
 
   const [availability, setAvailability] = useState(DEFAULT_AVAILABILITY)
 
-  // Form state
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -120,21 +119,21 @@ export default function DoctorRegisterPage() {
     }
     if (s === 4) {
       const availableDays = availability.filter(day => day.isAvailable)
-    
+
       if (availableDays.length === 0) {
         return 'Please keep at least one day available.'
       }
-    
+
       for (const day of availableDays) {
         if (!day.slots.length) {
           return 'Every available day should have at least one slot.'
         }
-    
+
         for (const slot of day.slots) {
           if (!slot.startTime || !slot.endTime) {
             return 'Slot start time and end time are required.'
           }
-    
+
           if (slot.startTime >= slot.endTime) {
             return 'Slot end time must be after start time.'
           }
@@ -158,75 +157,75 @@ export default function DoctorRegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-  
+
     const err = validateStep(4)
     if (err) {
       setError(err)
       return
     }
-  
+
     if (!licence) {
       setError('Medical licence is required.')
       return
     }
-  
+
     setLoading(true)
     setError('')
     setSuccess('')
-  
+
     try {
       const formData = new FormData()
-  
+
       formData.append('name', form.name.trim())
       formData.append('email', form.email.trim().toLowerCase())
       formData.append('password', form.password)
-  
+
       formData.append('specialization', form.specialization)
       formData.append('experienceYears', form.experienceYears || '0')
       formData.append('consultationFee', form.consultationFee)
-  
+
       formData.append('clinicName', form.clinicName.trim())
       formData.append('clinicAddress', form.clinicAddress.trim())
       formData.append('clinicCity', form.clinicCity.trim())
       formData.append('clinicState', form.clinicState.trim())
       formData.append('clinicPincode', form.clinicPincode.trim())
-  
+
       if (form.longitude.trim()) {
         formData.append('longitude', form.longitude.trim())
       }
-  
+
       if (form.latitude.trim()) {
         formData.append('latitude', form.latitude.trim())
       }
-  
+
       if (profileImage) {
         formData.append('profileImage', profileImage)
       }
-  
+
       formData.append('licence', licence)
-  
+
       const cleanedAvailability = availability.map(day => ({
         dayOfWeek: day.dayOfWeek,
         isAvailable: day.isAvailable,
         slots: day.isAvailable ? day.slots : [],
       }))
-  
+
       formData.append('availability', JSON.stringify(cleanedAvailability))
-  
+
       const res = await fetch('/api/auth/doctor/register', {
         method: 'POST',
         body: formData,
       })
-  
+
       const data = await res.json()
-  
+
       if (!res.ok) {
         setError(data.message || 'Registration failed. Please try again.')
         return
       }
-  
+
       setSuccess('Doctor registration successful! Redirecting to login...')
-  
+
       setTimeout(() => {
         router.push('/login')
       }, 1500)
@@ -242,9 +241,9 @@ export default function DoctorRegisterPage() {
     setAvailability(prev =>
       prev.map(day => {
         if (day.dayOfWeek !== dayOfWeek) return day
-  
+
         const nextAvailable = !day.isAvailable
-  
+
         return {
           ...day,
           isAvailable: nextAvailable,
@@ -255,7 +254,7 @@ export default function DoctorRegisterPage() {
       })
     )
   }
-  
+
   const addSlot = (dayOfWeek) => {
     setAvailability(prev =>
       prev.map(day =>
@@ -269,14 +268,14 @@ export default function DoctorRegisterPage() {
       )
     )
   }
-  
+
   const removeSlot = (dayOfWeek, slotIndex) => {
     setAvailability(prev =>
       prev.map(day => {
         if (day.dayOfWeek !== dayOfWeek) return day
-  
+
         const updatedSlots = day.slots.filter((_, index) => index !== slotIndex)
-  
+
         return {
           ...day,
           slots: updatedSlots,
@@ -285,18 +284,18 @@ export default function DoctorRegisterPage() {
       })
     )
   }
-  
+
   const updateSlot = (dayOfWeek, slotIndex, field, value) => {
     setAvailability(prev =>
       prev.map(day => {
         if (day.dayOfWeek !== dayOfWeek) return day
-  
+
         const updatedSlots = day.slots.map((slot, index) =>
           index === slotIndex
             ? { ...slot, [field]: value }
             : slot
         )
-  
+
         return {
           ...day,
           slots: updatedSlots,
@@ -304,15 +303,15 @@ export default function DoctorRegisterPage() {
       })
     )
   }
-  
+
   const copyFirstAvailableDayToAll = () => {
     const sourceDay = availability.find(day => day.isAvailable && day.slots.length > 0)
-  
+
     if (!sourceDay) {
       setError('Please add at least one slot before copying.')
       return
     }
-  
+
     setAvailability(prev =>
       prev.map(day => ({
         ...day,
@@ -322,15 +321,14 @@ export default function DoctorRegisterPage() {
           : sourceDay.slots.map(slot => ({ ...slot })),
       }))
     )
-  
+
     setError('')
   }
 
   return (
     <div className="min-h-screen bg-surface-2 flex flex-col">
-      {/* Top bar */}
       <div className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="cursor-pointer flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-primary-600 flex items-center justify-center">
             <span className="text-white text-xs font-bold">M</span>
           </div>
@@ -340,19 +338,17 @@ export default function DoctorRegisterPage() {
         </Link>
         <span className="text-sm text-slate-500">
           Already registered?{' '}
-          <Link href="/login" className="text-primary-600 font-medium hover:text-primary-700">Sign in</Link>
+          <Link href="/login" className="cursor-pointer text-primary-600 font-medium hover:text-primary-700">Sign in</Link>
         </span>
       </div>
 
       <div className="flex-1 flex items-start justify-center py-10 px-4">
         <div className="w-full max-w-xl">
-          {/* Page title */}
           <div className="text-center mb-7">
             <h1 className="font-display text-2xl font-bold text-slate-900 mb-1">Join as a Doctor</h1>
             <p className="text-slate-500 text-sm">Create your professional profile on MediConnect</p>
           </div>
 
-          {/* Step indicator */}
           <div className="flex items-center justify-center gap-0 mb-8">
             {STEPS.map((s, i) => (
               <div key={s.id} className="flex items-center">
@@ -375,7 +371,6 @@ export default function DoctorRegisterPage() {
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-8">
-            {/* Alerts */}
             {success && (
               <div className="mb-5 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 flex items-start gap-2.5">
                 <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -393,12 +388,10 @@ export default function DoctorRegisterPage() {
               </div>
             )}
 
-            {/* ─── STEP 1: Personal Info ─── */}
             {step === 1 && (
               <div className="space-y-5 animate-fade-in">
                 <h2 className="text-base font-semibold text-slate-800 mb-4">Personal Information</h2>
 
-                {/* Profile image */}
                 <div>
                   <label className="label">Profile Photo <span className="text-slate-400 font-normal">(optional)</span></label>
                   <div className="flex items-center gap-4">
@@ -410,12 +403,12 @@ export default function DoctorRegisterPage() {
                     </div>
                     <div className="flex flex-col gap-2">
                       <button type="button" onClick={() => profileInputRef.current?.click()}
-                        className="text-sm font-medium text-primary-600 hover:text-primary-700 border border-primary-200 bg-primary-50 hover:bg-primary-100 px-3 py-1.5 rounded-lg transition-colors">
+                        className="cursor-pointer text-sm font-medium text-primary-600 hover:text-primary-700 border border-primary-200 bg-primary-50 hover:bg-primary-100 px-3 py-1.5 rounded-lg transition-colors">
                         {profilePreview ? 'Change photo' : 'Upload photo'}
                       </button>
                       {profilePreview && (
                         <button type="button" onClick={() => { setProfileImage(null); setProfilePreview(null) }}
-                          className="text-xs text-slate-400 hover:text-red-500 transition-colors text-left">Remove</button>
+                          className="cursor-pointer text-xs text-slate-400 hover:text-red-500 transition-colors text-left">Remove</button>
                       )}
                       <span className="text-xs text-slate-400">JPG, PNG · Max 5MB</span>
                     </div>
@@ -455,20 +448,19 @@ export default function DoctorRegisterPage() {
                   </div>
                 </div>
 
-                <button type="button" onClick={nextStep} className="btn-primary w-full py-3 text-sm mt-2">
+                <button type="button" onClick={nextStep} className="cursor-pointer btn-primary w-full py-3 text-sm mt-2">
                   Continue →
                 </button>
               </div>
             )}
 
-            {/* ─── STEP 2: Professional Info ─── */}
             {step === 2 && (
               <div className="space-y-5 animate-fade-in">
                 <h2 className="text-base font-semibold text-slate-800 mb-4">Professional Details</h2>
 
                 <div>
                   <label htmlFor="specialization" className="label">Specialization</label>
-                  <select id="specialization" name="specialization" value={form.specialization} onChange={handleChange} className="input-base">
+                  <select id="specialization" name="specialization" value={form.specialization} onChange={handleChange} className="cursor-pointer input-base">
                     <option value="">Select specialization…</option>
                     {SPECIALIZATIONS.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
@@ -487,7 +479,6 @@ export default function DoctorRegisterPage() {
                   </div>
                 </div>
 
-                {/* Licence upload */}
                 <div>
                   <label className="label">
                     Medical Licence{' '}
@@ -496,7 +487,7 @@ export default function DoctorRegisterPage() {
                   </label>
                   <div
                     onClick={() => licenceInputRef.current?.click()}
-                    className={`border-2 border-dashed rounded-xl p-6 cursor-pointer transition-colors duration-150 text-center
+                    className={`cursor-pointer border-2 border-dashed rounded-xl p-6 transition-colors duration-150 text-center
                       ${licence ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 hover:border-primary-300 hover:bg-primary-50/40'}`}
                   >
                     {licence ? (
@@ -513,7 +504,7 @@ export default function DoctorRegisterPage() {
                         <button
                           type="button"
                           onClick={e => { e.stopPropagation(); setLicence(null); setLicenceName(''); if (licenceInputRef.current) licenceInputRef.current.value = '' }}
-                          className="ml-auto text-xs text-red-400 hover:text-red-600"
+                          className="cursor-pointer ml-auto text-xs text-red-400 hover:text-red-600"
                         >Remove</button>
                       </div>
                     ) : (
@@ -535,13 +526,12 @@ export default function DoctorRegisterPage() {
                 </div>
 
                 <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={prevStep} className="btn-secondary flex-1 py-3 text-sm">← Back</button>
-                  <button type="button" onClick={nextStep} className="btn-primary flex-1 py-3 text-sm">Continue →</button>
+                  <button type="button" onClick={prevStep} className="cursor-pointer btn-secondary flex-1 py-3 text-sm">← Back</button>
+                  <button type="button" onClick={nextStep} className="cursor-pointer btn-primary flex-1 py-3 text-sm">Continue →</button>
                 </div>
               </div>
             )}
 
-            {/* ─── STEP 3: Clinic Details ─── */}
             {step === 3 && (
               <form onSubmit={handleSubmit} className="space-y-5 animate-fade-in">
                 <h2 className="text-base font-semibold text-slate-800 mb-4">Clinic Details</h2>
@@ -578,7 +568,6 @@ export default function DoctorRegisterPage() {
                     placeholder="400001" maxLength={6} className="input-base" />
                 </div>
 
-                {/* Optional coordinates */}
                 <details className="group">
                   <summary className="cursor-pointer text-sm text-slate-500 hover:text-slate-700 select-none list-none flex items-center gap-1.5">
                     <svg className="w-4 h-4 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -602,20 +591,19 @@ export default function DoctorRegisterPage() {
 
                 <p className="text-xs text-slate-400 leading-relaxed">
                   By registering, you agree to our{' '}
-                  <a href="#" className="text-primary-600 hover:underline">Terms of Service</a>{' '}
+                  <a href="#" className="cursor-pointer text-primary-600 hover:underline">Terms of Service</a>{' '}
                   and{' '}
-                  <a href="#" className="text-primary-600 hover:underline">Doctor Code of Conduct</a>.
+                  <a href="#" className="cursor-pointer text-primary-600 hover:underline">Doctor Code of Conduct</a>.
                   Your account will be reviewed before activation.
                 </p>
 
                 <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={prevStep} className="btn-secondary flex-1 py-3 text-sm">← Back</button>
-                  <button type="button" onClick={nextStep} className="btn-primary flex-1 py-3 text-sm">Continue →</button>
+                  <button type="button" onClick={prevStep} className="cursor-pointer btn-secondary flex-1 py-3 text-sm">← Back</button>
+                  <button type="button" onClick={nextStep} className="cursor-pointer btn-primary flex-1 py-3 text-sm">Continue →</button>
                 </div>
               </form>
             )}
 
-            {/* ─── STEP 4: Availability ─── */}
             {step === 4 && (
               <form onSubmit={handleSubmit} className="space-y-5 animate-fade-in">
                 <div className="flex items-start justify-between gap-4 mb-4">
@@ -661,7 +649,7 @@ export default function DoctorRegisterPage() {
                           <button
                             type="button"
                             onClick={() => toggleDayAvailability(day.dayOfWeek)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            className={`cursor-pointer relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                               day.isAvailable ? 'bg-primary-600' : 'bg-slate-300'
                             }`}
                           >
@@ -711,7 +699,7 @@ export default function DoctorRegisterPage() {
                                 <button
                                   type="button"
                                   onClick={() => removeSlot(day.dayOfWeek, slotIndex)}
-                                  className="h-10 px-3 rounded-xl border border-red-100 text-red-500 text-xs font-medium hover:bg-red-50 transition-colors"
+                                  className="cursor-pointer h-10 px-3 rounded-xl border border-red-100 text-red-500 text-xs font-medium hover:bg-red-50 transition-colors"
                                 >
                                   Remove
                                 </button>
@@ -721,7 +709,7 @@ export default function DoctorRegisterPage() {
                             <button
                               type="button"
                               onClick={() => addSlot(day.dayOfWeek)}
-                              className="text-xs font-medium text-primary-600 hover:text-primary-700"
+                              className="cursor-pointer text-xs font-medium text-primary-600 hover:text-primary-700"
                             >
                               + Add another slot
                             </button>
@@ -740,7 +728,7 @@ export default function DoctorRegisterPage() {
                   <button
                     type="button"
                     onClick={prevStep}
-                    className="btn-secondary flex-1 py-3 text-sm"
+                    className="cursor-pointer btn-secondary flex-1 py-3 text-sm"
                   >
                     ← Back
                   </button>
@@ -748,7 +736,7 @@ export default function DoctorRegisterPage() {
                   <button
                     type="submit"
                     disabled={loading || !!success}
-                    className="btn-primary flex-1 py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="cursor-pointer btn-primary flex-1 py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? (
                       <span className="flex items-center justify-center gap-2">
@@ -766,7 +754,7 @@ export default function DoctorRegisterPage() {
 
           <p className="text-center text-sm text-slate-500 mt-5">
             Looking for a patient account?{' '}
-            <Link href="/register" className="font-medium text-primary-600 hover:text-primary-700">Register as patient →</Link>
+            <Link href="/register" className="cursor-pointer font-medium text-primary-600 hover:text-primary-700">Register as patient →</Link>
           </p>
         </div>
       </div>
@@ -777,7 +765,7 @@ export default function DoctorRegisterPage() {
 function EyeToggle({ show, onToggle }) {
   return (
     <button type="button" onClick={onToggle}
-      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600">
+      className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600">
       {show ? (
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />

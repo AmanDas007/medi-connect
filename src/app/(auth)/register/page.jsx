@@ -112,7 +112,7 @@ export default function PatientRegisterPage() {
     <div className="min-h-screen bg-surface-2 flex flex-col">
       {/* Top bar */}
       <div className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="cursor-pointer flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-primary-600 flex items-center justify-center">
             <span className="text-white text-xs font-bold">M</span>
           </div>
@@ -122,7 +122,7 @@ export default function PatientRegisterPage() {
         </Link>
         <span className="text-sm text-slate-500">
           Already have an account?{' '}
-          <Link href="/login" className="text-primary-600 font-medium hover:text-primary-700">Sign in</Link>
+          <Link href="/login" className="cursor-pointer text-primary-600 font-medium hover:text-primary-700">Sign in</Link>
         </span>
       </div>
 
@@ -172,12 +172,12 @@ export default function PatientRegisterPage() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="text-sm font-medium text-primary-600 hover:text-primary-700 border border-primary-200 hover:border-primary-300 bg-primary-50 hover:bg-primary-100 px-3 py-1.5 rounded-lg transition-colors"
+                      className="cursor-pointer text-sm font-medium text-primary-600 hover:text-primary-700 border border-primary-200 hover:border-primary-300 bg-primary-50 hover:bg-primary-100 px-3 py-1.5 rounded-lg transition-colors"
                     >
                       {profilePreview ? 'Change photo' : 'Upload photo'}
                     </button>
                     {profilePreview && (
-                      <button type="button" onClick={removeImage} className="text-xs text-slate-400 hover:text-red-500 transition-colors text-left">
+                      <button type="button" onClick={removeImage} className="cursor-pointer text-xs text-slate-400 hover:text-red-500 transition-colors text-left">
                         Remove
                       </button>
                     )}
@@ -241,7 +241,7 @@ export default function PatientRegisterPage() {
                     required
                   />
                   <button type="button" onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600">
+                    className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600">
                     <EyeIcon open={showPassword} />
                   </button>
                 </div>
@@ -263,7 +263,7 @@ export default function PatientRegisterPage() {
                     required
                   />
                   <button type="button" onClick={() => setShowConfirm(!showConfirm)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600">
+                    className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600">
                     <EyeIcon open={showConfirm} />
                   </button>
                 </div>
@@ -275,15 +275,15 @@ export default function PatientRegisterPage() {
               {/* Terms */}
               <p className="text-xs text-slate-400 leading-relaxed">
                 By creating an account, you agree to our{' '}
-                <a href="#" className="text-primary-600 hover:underline">Terms of Service</a>{' '}
+                <a href="#" className="cursor-pointer text-primary-600 hover:underline">Terms of Service</a>{' '}
                 and{' '}
-                <a href="#" className="text-primary-600 hover:underline">Privacy Policy</a>.
+                <a href="#" className="cursor-pointer text-primary-600 hover:underline">Privacy Policy</a>.
               </p>
 
               <button
                 type="submit"
                 disabled={loading || !!success}
-                className="btn-primary w-full py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="cursor-pointer btn-primary w-full py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -296,7 +296,7 @@ export default function PatientRegisterPage() {
 
           <p className="text-center text-sm text-slate-500 mt-5">
             Are you a doctor?{' '}
-            <Link href="/register/doctor" className="font-medium text-primary-600 hover:text-primary-700">
+            <Link href="/register/doctor" className="cursor-pointer font-medium text-primary-600 hover:text-primary-700">
               Register as doctor →
             </Link>
           </p>

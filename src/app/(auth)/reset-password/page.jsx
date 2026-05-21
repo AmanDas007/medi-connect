@@ -92,7 +92,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2">
+          <Link href="/" className="inline-flex items-center gap-2 cursor-pointer">
             <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center">
               <span className="text-white text-sm font-bold">M</span>
             </div>
@@ -157,7 +157,7 @@ export default function ResetPasswordPage() {
                       required
                     />
                     <button type="button" onClick={() => setShowNew(!showNew)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600">
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
                       <EyeIcon open={showNew} />
                     </button>
                   </div>
@@ -178,7 +178,7 @@ export default function ResetPasswordPage() {
                       required
                     />
                     <button type="button" onClick={() => setShowConfirm(!showConfirm)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600">
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
                       <EyeIcon open={showConfirm} />
                     </button>
                   </div>
@@ -198,7 +198,7 @@ export default function ResetPasswordPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="btn-primary w-full py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn-primary w-full py-3 text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -214,7 +214,7 @@ export default function ResetPasswordPage() {
 
         {!success && (
           <p className="text-center text-sm text-slate-500 mt-5">
-            <Link href="/login" className="font-medium text-primary-600 hover:text-primary-700">← Back to login</Link>
+            <Link href="/login" className="font-medium text-primary-600 hover:text-primary-700 cursor-pointer">← Back to login</Link>
           </p>
         )}
       </div>

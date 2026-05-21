@@ -186,7 +186,7 @@ export default function VerifyOtpPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2">
+          <Link href="/" className="inline-flex items-center gap-2 cursor-pointer">
             <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center">
               <span className="text-white text-sm font-bold">M</span>
             </div>
@@ -242,7 +242,7 @@ export default function VerifyOtpPage() {
                   value={digit}
                   onChange={e => handleOtpChange(i, e.target.value)}
                   onKeyDown={e => handleKeyDown(i, e)}
-                  className={`otp-input transition-all duration-150 
+                  className={`otp-input transition-all duration-150 cursor-text
                     ${digit ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-slate-200 text-slate-900'}
                     ${error ? 'border-red-300 bg-red-50' : ''}`}
                   aria-label={`OTP digit ${i + 1}`}
@@ -253,7 +253,7 @@ export default function VerifyOtpPage() {
             <button
               type="submit"
               disabled={loading || otp.join('').length < OTP_LENGTH}
-              className="btn-primary w-full py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary w-full py-3 text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -270,7 +270,7 @@ export default function VerifyOtpPage() {
               <button
                 onClick={handleResend}
                 disabled={resending}
-                className="text-sm font-medium text-primary-600 hover:text-primary-700 disabled:opacity-50"
+                className="text-sm font-medium text-primary-600 hover:text-primary-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {resending ? 'Resending…' : 'Resend OTP'}
               </button>
@@ -286,11 +286,11 @@ export default function VerifyOtpPage() {
         </div>
 
         <div className="flex items-center justify-center gap-4 mt-5 text-sm">
-          <Link href="/forgot-password" className="text-slate-500 hover:text-slate-700">
+          <Link href="/forgot-password" className="text-slate-500 hover:text-slate-700 cursor-pointer">
             ← Change email
           </Link>
           <span className="text-slate-300">·</span>
-          <Link href="/login" className="text-slate-500 hover:text-slate-700">
+          <Link href="/login" className="text-slate-500 hover:text-slate-700 cursor-pointer">
             Back to login
           </Link>
         </div>

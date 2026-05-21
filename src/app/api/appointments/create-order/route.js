@@ -8,8 +8,6 @@ import Payment from "@/models/Payment";
 import { razorpay } from "@/lib/razorpay";
 import { requirePatient } from "@/lib/apiAuth";
 
-export const runtime = "nodejs";
-
 function buildIndiaDate(dateString, timeString) {
   return new Date(`${dateString}T${timeString}:00+05:30`);
 }

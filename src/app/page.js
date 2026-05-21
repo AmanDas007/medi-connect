@@ -1,5 +1,5 @@
-import LoginPage from "./(auth)/login/page"
+import PatientDashboardPage from "./(patient)/dashboard/page"
 
 export default function Home() {
-  return <LoginPage />
+  return <PatientDashboardPage />
 }
