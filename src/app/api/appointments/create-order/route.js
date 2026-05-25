@@ -12,16 +12,56 @@ function buildIndiaDate(dateString, timeString) {
   return new Date(`${dateString}T${timeString}:00+05:30`);
 }
 
+function getDayOfWeekFromDateString(dateString) {
+  const [year, month, day] = dateString.split("-").map(Number);
+
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
+function normalizeTime(time) {
+  return String(time || "").trim();
+}
+
+function isValidDateString(dateString) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return false;
+
+  const [year, month, day] = dateString.split("-").map(Number);
+
+  if (!year || !month || !day) return false;
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > 31) return false;
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+function isValidTimeString(timeString) {
+  return /^([01]\d|2[0-3]):([0-5]\d)$/.test(timeString);
+}
+
 function isValidSlot(doctor, dayOfWeek, startTime, endTime) {
+  const normalizedStartTime = normalizeTime(startTime);
+  const normalizedEndTime = normalizeTime(endTime);
+
   const dayAvailability = doctor.availability?.find(
-    day => day.dayOfWeek === dayOfWeek && day.isAvailable
+    day =>
+      Number(day.dayOfWeek) === Number(dayOfWeek) &&
+      day.isAvailable
   );
 
   if (!dayAvailability) return false;
 
-  return dayAvailability.slots?.some(
-    slot => slot.startTime === startTime && slot.endTime === endTime
-  );
+  return dayAvailability.slots?.some(slot => {
+    return (
+      normalizeTime(slot.startTime) === normalizedStartTime &&
+      normalizeTime(slot.endTime) === normalizedEndTime
+    );
+  });
 }
 
 export async function POST(req) {
@@ -34,7 +74,12 @@ export async function POST(req) {
 
     if (auth.error) return auth.error;
 
-    const { doctorId, appointmentDate, startTime, endTime } = await req.json();
+    const body = await req.json();
+
+    const doctorId = body.doctorId;
+    const appointmentDate = String(body.appointmentDate || "").trim();
+    const startTime = normalizeTime(body.startTime);
+    const endTime = normalizeTime(body.endTime);
 
     const mode = "offline";
 
@@ -48,6 +93,20 @@ export async function POST(req) {
     if (!mongoose.Types.ObjectId.isValid(doctorId)) {
       return NextResponse.json(
         { success: false, message: "Invalid doctor id" },
+        { status: 400 }
+      );
+    }
+
+    if (!isValidDateString(appointmentDate)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid appointment date" },
+        { status: 400 }
+      );
+    }
+
+    if (!isValidTimeString(startTime) || !isValidTimeString(endTime)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid slot time format" },
         { status: 400 }
       );
     }
@@ -95,8 +154,7 @@ export async function POST(req) {
       );
     }
 
-    const selectedDate = new Date(`${appointmentDate}T00:00:00+05:30`);
-    const dayOfWeek = selectedDate.getDay();
+    const dayOfWeek = getDayOfWeekFromDateString(appointmentDate);
 
     const validSlot = isValidSlot(doctor, dayOfWeek, startTime, endTime);
 
@@ -107,13 +165,13 @@ export async function POST(req) {
       );
     }
 
-    const activeSlotKey = `${doctor._id}_${slotStart.toISOString()}`;
+    const now = new Date();
 
     await Appointment.updateMany(
       {
         doctor: doctor._id,
         status: "pending-payment",
-        paymentExpiresAt: { $lt: new Date() },
+        paymentExpiresAt: { $lt: now },
       },
       {
         $set: { status: "expired" },
@@ -121,13 +179,15 @@ export async function POST(req) {
       }
     );
 
+    const activeSlotKey = `${doctor._id}_${slotStart.toISOString()}`;
+
     appointment = await Appointment.create({
       patient: auth.user.id,
       doctor: doctor._id,
       patientName: auth.user.name || "Patient",
       slotStart,
       slotEnd,
-      mode: "offline",
+      mode,
       status: "pending-payment",
       paymentExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
       activeSlotKey,
@@ -145,7 +205,7 @@ export async function POST(req) {
         appointmentId: appointment._id.toString(),
         doctorId: doctor._id.toString(),
         patientId: auth.user.id.toString(),
-        mode: "offline",
+        mode,
       },
     });
 
@@ -169,7 +229,7 @@ export async function POST(req) {
         currency: "INR",
         appointmentId: appointment._id,
         paymentId: payment._id,
-        mode: "offline",
+        mode,
         doctor: {
           id: doctor._id,
           name: doctor.name,
@@ -197,7 +257,10 @@ export async function POST(req) {
     }
 
     return NextResponse.json(
-      { success: false, message: "Something went wrong while creating payment order" },
+      {
+        success: false,
+        message: "Something went wrong while creating payment order",
+      },
       { status: 500 }
     );
   }
