@@ -94,7 +94,7 @@ function getRateLimitKey(req) {
     .replace(/[^a-zA-Z0-9:._-]/g, "_")
     .slice(0, 180);
 
-  return `rate-limit:ai-booking:${safeIdentity}`;
+  return `${process.env.REDIS_NAMESPACE}rate-limit:ai-booking:${safeIdentity}`;
 }
 
 async function checkAiRateLimit(req) {
